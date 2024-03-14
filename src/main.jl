@@ -140,7 +140,7 @@ function initialize_result_classes!(mod::Module)
         Dict(),
         Dict(
             param => parameter_value(nothing) for
-            param in [:initial_temperature_K, :temperature_K, :hvac_demand_W]
+            param in [:temperature_K, :heating_demand_kW, :cooling_demand_kW]
         ),
     )
     # Create the associated parameters
