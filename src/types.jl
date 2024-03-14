@@ -452,7 +452,7 @@ BuildingNodeNetwork = Dict{Object,BuildingNodeData}
         building_nodes::BuildingNodeNetwork;
         ignore_year::Bool=false,
         repeat::Bool=false,
-        save_layouts::Bool=true,
+        save_layouts::Bool=false,
         resampling::Int=5,
         mod::Module=@__MODULE__,
         realization::Symbol=:realization
@@ -498,7 +498,7 @@ struct WeatherData <: BuildingDataType
         building_nodes::BuildingNodeNetwork;
         ignore_year::Bool=false,
         repeat::Bool=false,
-        save_layouts::Bool=true,
+        save_layouts::Bool=false,
         resampling::Int=5,
         mod::Module=@__MODULE__,
         realization::Symbol=:realization
@@ -682,23 +682,20 @@ AbstractNodeNetwork = Dict{Object,AbstractNode}
 
 """
     ArchetypeBuilding(
-        archetype::Object;
-        mod::Module = @__MODULE__,
-        realization::Symbol = :realization,
+        archetype::Object,
+        scope_data::ScopeData;
+        save_layouts::Bool=false,
+        mod::Module=@__MODULE__
     )
 
 Contains data representing a single archetype building.
 
-TODO: Revise documentation!
-
 The `ArchetypeBuilding` struct stores the information about the objects
 used in its construction, the aggregated statistical and structural properties,
 as well as the [`BuildingNodeData`](@ref) and [`BuildingProcessData`](@ref).
-Furthermore, the relevant [`AbstractNode`](@ref) and [`BuildingProcessData`](@ref)
-used to create the large-scale energy system model input
-are also stored for convenience. The contents of the `ArchetypeBuilding`
-are intended to be as human-readable as possible to allow for
-inspecting the contents individually for debugging purposes.
+The contents of the `ArchetypeBuilding` are intended to be as human-readable
+as possible to allow for inspecting the contents individually
+for debugging purposes.
 
 NOTE! The `mod` keyword changes from which Module data is accessed from
 by the constructor, `@__MODULE__` by default.
@@ -718,11 +715,12 @@ This struct contains the following fields:
 - `abstract_nodes::AbstractNodeNetwork`: The processed [`AbstractNode`](@ref)s depicting this archetype.
 
 The constructor performs the following steps:
-1. Fetch and create the corresponding [`WeatherData`](@ref).
-2. Fetch and create the corresponding [`ScopeData`](@ref).
+1. Fetch and create the corresponding [`ScopeData`](@ref).
+2. Fetch and create the corresponding [`WeatherData`](@ref).
 3. Form the [`EnvelopeData`](@ref).
 4. Process the [`LoadsData`](@ref).
 5. Process the temperature nodes using the [`create_building_node_network`](@ref) function.
+6. Process the [`WeatherData`](@ref).
 6. Create the [`BuildingProcessData`](@ref) for the HVAC system components.
 7. Process the abstract temperature nodes using the [`create_abstract_node_network`](@ref) function based on the [`BuildingNodeNetwork`](@ref).
 8. Construct the final `ArchetypeBuilding`.
@@ -751,6 +749,7 @@ struct ArchetypeBuilding
     """
     function ArchetypeBuilding(
         archetype::Object;
+        save_layouts::Bool=false,
         mod::Module=@__MODULE__,
         realization::Symbol=:realization
     )
@@ -763,12 +762,16 @@ struct ArchetypeBuilding
             mod=mod
         )
         # Create the ArchetypeBuilding using the latter constructor
-        ArchetypeBuilding(archetype, scope_data; mod=mod)
+        ArchetypeBuilding(
+            archetype, scope_data; save_layouts=save_layouts, mod=mod, realization=realization
+        )
     end
     function ArchetypeBuilding(
         archetype::Object,
         scope_data::ScopeData;
-        mod::Module=@__MODULE__
+        save_layouts::Bool=false,
+        mod::Module=@__MODULE__,
+        realization::Symbol=:realization
     )
         # Fetch the definitions related to the archetype.
         scope = scope_data.building_scope
@@ -797,6 +800,7 @@ struct ArchetypeBuilding
             scope_data,
             envelope_data,
             building_node_network;
+            save_layouts=save_layouts,
             mod=mod
         )
         building_processes = Dict(

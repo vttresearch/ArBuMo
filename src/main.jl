@@ -24,31 +24,33 @@ end
 
 
 """
-    archetype_building_processing(mod::Module=@__MODULE__)
+    archetype_building_processing(
+        mod::Module=@__MODULE__;
+        save_layouts::Bool=false,
+        realization::Symbol=:realization
+    )
 
-TODO: UPDATE DOCUMENTATION!
-
-Process the [`ScopeData`](@ref), [`WeatherData`](@ref), and [`ArchetypeBuilding`](@ref) objects.
+Process the [`ScopeData`](@ref) and [`ArchetypeBuilding`](@ref) objects.
 
 Essentially, processes all the necessary information for [`ArchetypeBuilding`](@ref)
 creation, and returns the `scope_data_dictionary`, `weather_data_dictionary`,
 and `archetype_dictionary` for examining the processed data.
-Any automatically generated [building_weather](@ref)
-objects will be imported back into the database at `weather_url`.
-If `save_layouts == true`, diagnostic figures of the layouts are saved into `figs/`.
-The `weather_data_dictionary` keyword can be used to bypass weather data processing
-if a pre-existing dictionary is provided.
-The `mod` keyword changes from which Module data is accessed from, `@__MODULE__` by default.
+If `save_layouts == true`, diagnostic figures of the weather aggregation
+layouts are saved into `figs/`. The `mod` keyword changes from which
+Module data is accessed from, `@__MODULE__` by default.
 The `realization` keyword is used to indicate the true data from potentially
 stochastic input.
 
 This function performs the following steps:
 1. Construct the [`ScopeData`](@ref) for each defined [building\\_archetype\\_\\_building_scope](@ref), and store in the `scope_data_dictionary`.
-2. Try to construct the [`WeatherData`](@ref) for each defined [building\\_archetype\\_\\_building_weather](@ref), and attempt automatic weather processing using [ArBuWe.py](@ref) if no definition found. Results stored in `weather_data_dictionary`.
-3. Use the `scope_data_dictionary` and `weather_data_dictionary` to construct the [`ArchetypeBuilding`](@ref) for all defined archetypes, and store them in `archetype_dictionary`.
-4. Return `scope_data_dictionary`, `weather_data_dictionary`, and `archetype_dictionary`.
+2. Use the `scope_data_dictionary` to construct the [`ArchetypeBuilding`](@ref) for all defined archetypes, and store them in `archetype_dictionary`.
+3. Return `scope_data_dictionary` and `archetype_dictionary`.
 """
-function archetype_building_processing(mod::Module=@__MODULE__)
+function archetype_building_processing(
+    mod::Module=@__MODULE__;
+    save_layouts::Bool=false,
+    realization::Symbol=:realization
+)
     # Process relevant `ScopeData` objects.
     @info "Processing `building_scope` objects into `ScopeData` for `scope_data_dictionary`..."
     @time scope_data_dictionary = Dict(
@@ -62,7 +64,9 @@ function archetype_building_processing(mod::Module=@__MODULE__)
         archetype => ArchetypeBuilding(
             archetype,
             scope_data_dictionary[archetype];
-            mod=mod
+            save_layouts=save_layouts,
+            mod=mod,
+            realization=realization
         ) for archetype in mod.building_archetype()
     )
 
@@ -74,46 +78,29 @@ end
 """
     solve_archetype_building_hvac_demand(
         archetype_dictionary::Dict{Object,ArchetypeBuilding};
-        free_dynamics::Bool = false,
-        initial_temperatures::Dict{Object,Dict{Object,Float64}} = Dict{
-            Object,
-            Dict{Object,Float64}
-        }(),
-        realization::Symbol = :realization,
+        mod::Module=@__MODULE__,
+        realization::Symbol=:realization
     )
 
 Solve the [`ArchetypeBuilding`](@ref) heating and cooling demand.
 
-The `free_dynamics` keyword can be used to ignore node temperature limits,
-while the `initial_temperatures` keyword can be used to set desired initial
-temperatures for the nodes. The `realization` keyword is used to denote
-the true data from potentially stochastic input.
+NOTE! The `mod` keyword changes from which Module data is accessed from
+by the constructor, `@__MODULE__` by default. The `realization` keyword
+is used to denote the true data from potentially stochastic input.
 
-Essentially, performs the following steps:
-1. Create the `archetype_results_dictionary` by constructing the [`ArchetypeBuildingResults`](@ref) for each entry in the `archetype_dictionary`.
-2. Create the `results__building_archetype__building_node` `RelationshipClass` for storing temperature results.
-3. Create the `results__building_archetype__building_process` `RelationshipClass` for storing HVAC results.
-4. Return the `archetype_results_dictionary`, as well as the created `RelationshipClasses`.
+Essentially creates the `archetype_results_dictionary` by constructing
+the [`ArchetypeBuildingResults`](@ref) for each entry in the `archetype_dictionary`.
 """
 function solve_archetype_building_hvac_demand(
     archetype_dictionary::Dict{Object,ArchetypeBuilding};
-    free_dynamics::Bool=false,
-    initial_temperatures::Dict{Object,Dict{Object,Float64}}=Dict{
-        Object,
-        Dict{Object,Float64},
-    }(),
     mod::Module=@__MODULE__,
     realization::Symbol=:realization
 )
-    # TODO: Implement new weather and heating demand calculations.
-
     # Heating/cooling demand calculations.
     @info "Calculating heating/cooling demand..."
     @time archetype_results_dictionary = Dict(
         archetype => ArchetypeBuildingResults(
             archetype_building;
-            free_dynamics=free_dynamics,
-            initial_temperatures=get(initial_temperatures, archetype, nothing),
             mod=mod,
             realization=realization
         ) for (archetype, archetype_building) in archetype_dictionary
@@ -127,16 +114,17 @@ end
 """
     initialize_result_classes!(mod::Module)
 
-Initialize `RelationshipClass`es and `ObjectClass`es for storing heating and HVAC demand results in `mod`.
+Initialize `RelationshipClass`es for storing heating and HVAC demand results in `mod`.
 
 Note that this function modifies `mod` directly!
 """
 function initialize_result_classes!(mod::Module)
     # Initialize archetype results
-    results__building_archetype = ObjectClass(
-        :building_archetype,
-        Array{ObjectLike,1}(),
-        Dict{ObjectLike,Dict{Symbol,SpineInterface.ParameterValue}}(),
+    results__building_archetype = RelationshipClass(
+        :results__building_archetype,
+        [:building_archetype],
+        Array{RelationshipLike,1}(),
+        Dict{RelationshipLike,Dict{Symbol,SpineInterface.ParameterValue}}(),
         Dict(
             param => parameter_value(nothing) for
             param in [
@@ -270,7 +258,7 @@ end
 
 """
     add_results!(
-        results__building_archetype::ObjectClass,
+        results__building_archetype::RelationshipClass,
         results__building_archetype__building_node::RelationshipClass,
         results__building_archetype__building_process::RelationshipClass,
         results__system_link_node::ObjectClass,
@@ -284,7 +272,7 @@ end
     `@__MODULE__` by default.
 """
 function add_results!(
-    results__building_archetype::ObjectClass,
+    results__building_archetype::RelationshipClass,
     results__building_archetype__building_node::RelationshipClass,
     results__building_archetype__building_process::RelationshipClass,
     results__system_link_node::ObjectClass,
@@ -295,10 +283,10 @@ function add_results!(
     results = values(results_dictionary)
 
     # Add `results__building_archetype` results.
-    add_object_parameter_values!(
+    add_relationship_parameter_values!(
         results__building_archetype,
         Dict(
-            r.archetype.archetype => Dict(
+            (building_archetype=r.archetype.archetype,) => Dict(
                 :number_of_buildings => parameter_value(
                     r.archetype.scope_data.number_of_buildings
                 ),

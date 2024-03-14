@@ -55,10 +55,6 @@ Depth = 3
 
 >Classification for different types of buildings.
 
-### `building_weather`
-
->Represents weather for the archetype buildings.
-
 ### `direction`
 
 >Direction of process commodity flows, either into or from nodes.
@@ -547,36 +543,6 @@ Default value: `nothing`
 
 Value list: `nothing`
 
-### `ambient_temperature_K`
-
->Ambient air temperature [K].
-
-Object class: `building_weather`
-
-Default value: `nothing`
-
-Value list: `nothing`
-
-### `diffuse_solar_irradiation_W_m2`
-
->Diffuse solar irradiation [W/m2].
-
-Object class: `building_weather`
-
-Default value: `nothing`
-
-Value list: `nothing`
-
-### `direct_solar_irradiation_W_m2`
-
->Direct solar irradiation on walls facing towards the cardinal directions [W/m2].
-
-Object class: `building_weather`
-
-Default value: `Dict{String, Any}("data" => Any[Any["horizontal", 0.0], Any["north", 0.0], Any["east", 0.0], Any["south", 0.0], Any["west", 0.0]], "type" => "map", "index_name" => "cardinal_direction", "index_type" => "str")`
-
-Value list: `nothing`
-
 ### `location_name`
 
 >Name of the location corresponding to the identifier, e.g. the name of the municipality, region, country, etc.
@@ -746,12 +712,6 @@ Object classes: building_archetype, and building_scope
 >Defines the heating/cooling systems used by the archetype building.
 
 Object classes: building_archetype, and building_systems
-
-### `building_archetype__building_weather`
-
->Defines the weather for the archetype building.
-
-Object classes: building_archetype, and building_weather
 
 ### `building_archetype__system_link_node`
 

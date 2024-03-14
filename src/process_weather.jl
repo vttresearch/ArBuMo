@@ -13,7 +13,7 @@ Contains functions for processing weather data.
         building_nodes::BuildingNodeNetwork;
         ignore_year::Bool=false,
         repeat::Bool=false,
-        save_layouts::Bool=true,
+        save_layouts::Bool=false,
         resampling::Int=5,
         mod::Module=@__MODULE__,
         realization::Symbol=:realization
@@ -37,7 +37,7 @@ function process_weather(
     building_nodes::BuildingNodeNetwork;
     ignore_year::Bool=false,
     repeat::Bool=false,
-    save_layouts::Bool=true,
+    save_layouts::Bool=false,
     resampling::Int=5,
     mod::Module=@__MODULE__,
     realization::Symbol=:realization
@@ -168,12 +168,12 @@ calculate_effective_ground_temperature(
         building_nodes::BuildingNodeNetwork;
         ignore_year::Bool=false,
         repeat::Bool=false,
-        save_layouts::Bool=true,
+        save_layouts::Bool=false,
         resampling::Int=5,
         mod::Module=@__MODULE__
     )
 
-Try to create `building_weather` automatically using `ArBuWe.py`.
+Automatically process weather and preliminary demands data using `ArBuWe.py`.
 
 NOTE! The `mod` keyword changes from which Module data is accessed from,
 `@__MODULE__` by default.
@@ -193,7 +193,7 @@ The `save_layouts` keyword is used to control whether the layouts used for
 weighting the weather data are saved for diagnostics.
 
 The actual calculations are handled primarily through the
-`aggregate_demand_and_weather` function of `ArBuWe.py`.
+`aggregate_demand_and_weather` function in `ArBuWe.py`.
 """
 function create_building_weather(
     archetype::Object,
@@ -202,7 +202,7 @@ function create_building_weather(
     building_nodes::BuildingNodeNetwork;
     ignore_year::Bool=false,
     repeat::Bool=false,
-    save_layouts::Bool=true,
+    save_layouts::Bool=false,
     resampling::Int=5,
     mod::Module=@__MODULE__
 )
