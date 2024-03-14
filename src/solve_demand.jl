@@ -161,12 +161,22 @@ function solve_heating_demand(
         temperatures_K,
         hc_ratio
     ) # Scaling to kWh internally within the function!
+
+    # Initialize the heating and cooling demand result dictionaries.
+    heating_demand_dict_kW = Dict(
+        node => zero_ts for node in keys(archetype.abstract_nodes)
+    )
+    cooling_demand_dict_kW = Dict(
+        node => zero_ts for node in keys(archetype.abstract_nodes)
+    )
+    # Save the results of interest into the result dictionaries
+    heating_demand_dict_kW[air_node] = heating_demand_kW
+    heating_demand_dict_kW[dhw_node] = dhw_demand_kW
+    cooling_demand_dict_kW[air_node] = cooling_demand_kW
+
     return temperatures_K,
-    Dict(
-        air_node => heating_demand_kW,
-        dhw_node => dhw_demand_kW
-    ),
-    Dict(air_node => cooling_demand_kW),
+    heating_demand_dict_kW,
+    cooling_demand_dict_kW,
     heating_correction_W,
     cooling_correction_W
 end
