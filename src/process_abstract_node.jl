@@ -8,16 +8,21 @@ large-scale energy system model input.
 
 """
     create_abstract_node_network(
+        archetype::Object,
+        scope::ScopeData,
+        envelope::EnvelopeData,
         building_node_network::BuildingNodeNetwork,
-        weather::WeatherData,
+        weather::WeatherData;
+        mod::Module=@__MODULE__
     )
 
 Process a `BuildingNodeNetwork` into an `AbstractNodeNetwork`.
 
-TODO: Revise documentation, rename AbstractNode to FlexibilityNode?
-
-The `AbstractNodeNetwork` is a useful step for creating model-agnostic input
-for multiple large-scale energy system models.
+The main purpose of this step is to account for weather-dependencies
+contained in the `weather::WeatherData` input. However, the
+`AbstractNodeNetwork` is also computationally useful,
+e.g. for creating model-agnostic input for multiple
+large-scale energy system models.
 """
 function create_abstract_node_network(
     archetype::Object,
@@ -44,18 +49,21 @@ end
 
 """
     process_abstract_node(
+        archetype::Object,
+        scope::ScopeData,
+        envelope::EnvelopeData,
         building_node_network::BuildingNodeNetwork,
         weather::WeatherData,
-        node::Object
+        node::Object;
+        mod::Module=@__MODULE__
     )
 
 Calculate the properties of an [`AbstractNode`](@ref) corresponding to the `node` in the `building_node_network`.
 
-TODO: Revise documentation, rename AbstractNode to FlexibilityNode?
-
 Combines all the individual parameters in [`BuildingNodeData`](@ref)s in [`BuildingNodeNetwork`](@ref)
 into the bare minimum parameters required for modelling lumped-capacitance thermal nodes
-in our energy system modelling frameworks.
+in our energy system modelling frameworks. This reduced form is also convenient
+for some later heating demand calculations as well.
 
 Essentially, this function performs the following steps:
 1. Sum all the thermal mass components together and convert into [Wh/K].
@@ -93,9 +101,9 @@ Unfortunately, this has the side-effect of making the energy-system-model-level
 input data quite unintuitive, but avoids the need to implement ambient-temperature-dependent
 interactions in complicated energy system modelling frameworks.
 
-**NOTE!** All heat transfer coefficients are assumed to be symmetrical!
-**NOTE!** All [`AbstractNode`](@ref)s are given `1e-9 Wh/K` thermal mass to avoid
-singularities when solving the temperature dynamics and heat demand later on.
+**NOTE!** All heat transfer coefficients are forced to be symmetrical!
+**NOTE!** Currently, radiative internal and solar gains are lost through the windows
+in the building envelope.
 """
 function process_abstract_node(
     archetype::Object,
@@ -106,8 +114,9 @@ function process_abstract_node(
     node::Object;
     mod::Module=@__MODULE__
 )
-    # Convenience access to the `BuildingNodeData`.
-    node_data = building_node_network[node]
+    # Convenience access to the `BuildingNodeData` and the other nodes, making sure not to alter the original network.
+    building_node_network = copy(building_node_network)
+    node_data = pop!(building_node_network, node)
 
     # Total thermal mass of the node, in Wh/K for better scaling in energy system models.
     thermal_mass_Wh_K =
@@ -116,7 +125,7 @@ function process_abstract_node(
             node_data.thermal_mass_gfa_scaled_J_K +
             node_data.thermal_mass_interior_air_and_furniture_J_K +
             node_data.thermal_mass_structures_J_K
-        ) / 3600 # TODO: is this necessary? + 1e-9 # Token thermal mass always required to avoid singularities in the dynamics matrix
+        ) / 3600
 
     # Total self-discharge coefficient from the node, accounting for ambient heat transfer.
     self_discharge_coefficient_W_K =
@@ -129,46 +138,27 @@ function process_abstract_node(
         node_data.heat_transfer_coefficient_thermal_bridges_W_K
 
     # Heat transfer coefficients from this node to connected nodes.
-    # First, connection to interior air.
-    heat_transfer_coefficients_W_K = Dict(
-        n =>
-            node_data.heat_transfer_coefficient_structures_interior_W_K *
-            building_node_network[n].interior_air_and_furniture_weight for
-        n in keys(building_node_network)
-    )
-    # Force symmetry.
-    mergewith!(
+    heat_transfer_coefficients_W_K = mergewith(
         +,
-        heat_transfer_coefficients_W_K,
-        Dict(
-            n =>
-                building_node_network[n].heat_transfer_coefficient_structures_interior_W_K *
-                node_data.interior_air_and_furniture_weight for
-            n in keys(building_node_network)
+        Dict( # First, heat transfer to interior air.
+            n => node_data.heat_transfer_coefficient_structures_interior_W_K
+            for (n, n_data) in building_node_network
+            if n_data.is_interior_node
         ),
-    )
-    # Then updated with user-defined heat-transfer coefficients
-    mergewith!(
-        +,
-        heat_transfer_coefficients_W_K,
-        node_data.heat_transfer_coefficients_base_W_K,
-    )
-    mergewith!(
-        +,
-        heat_transfer_coefficients_W_K,
-        node_data.heat_transfer_coefficients_gfa_scaled_W_K,
-    )
-    # Force symmetry.
-    for n in keys(building_node_network)
-        heat_transfer_coefficients_W_K[n] += (
-            get(building_node_network[n].heat_transfer_coefficients_base_W_K, node, 0) +
-            get(
-                building_node_network[n].heat_transfer_coefficients_gfa_scaled_W_K,
-                node,
-                0,
-            )
+        Dict( # Force symmetry to the interior air heat transfer.
+            n => n_data.heat_transfer_coefficient_structures_interior_W_K
+            for (n, n_data) in building_node_network
+            if node_data.is_interior_node
+        ),
+        node_data.heat_transfer_coefficients_base_W_K, # User-defined heat transfers
+        node_data.heat_transfer_coefficients_gfa_scaled_W_K, # User-defined heat transfers
+        Dict( # Force symmetry on user-defined heat transfer
+            n => (
+                get(n_data.heat_transfer_coefficients_base_W_K, node, 0.0) +
+                get(n_data.heat_transfer_coefficients_gfa_scaled_W_K, node, 0.0)
+            ) for (n, n_data) in building_node_network
         )
-    end
+    )
     # And filter out zero heat transfer coefficients.
     filter!(pair -> pair[2] != 0, heat_transfer_coefficients_W_K)
 
@@ -178,7 +168,7 @@ function process_abstract_node(
         scope,
         envelope,
         weather,
-        node_data.interior_air_and_furniture_weight;
+        node_data.is_interior_node;
         mod=mod
     )
     solar_heat_gains_structures_W = calculate_radiative_solar_gains(
@@ -224,12 +214,16 @@ function process_abstract_node(
         node_data.domestic_hot_water_demand_W
 
     # Return the properties of interest in the correct order for `AbstractNode`.
-    return thermal_mass_Wh_K,
+    return node_data.heating_set_point_K,
+    node_data.cooling_set_point_K,
+    node_data.maximum_temperature_deviation_K,
+    node_data.minimum_temperature_deviation_K,
+    thermal_mass_Wh_K,
     self_discharge_coefficient_W_K,
     heat_transfer_coefficients_W_K,
-    node_data.minimum_temperature_K,
-    node_data.maximum_temperature_K,
-    external_load_W
+    external_load_W,
+    node_data.is_interior_node,
+    mod.domestic_hot_water_demand_weight(building_node=node) > 0
 end
 
 
@@ -239,10 +233,8 @@ end
         scope::ScopeData,
         envelope::EnvelopeData,
         weather::WeatherData;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__
     )
-
-TODO: Revise documentation!
 
 Calculate the total solar heat gains through the windows.
 
@@ -258,16 +250,19 @@ using a very simple average non-perpendicularity factor.
 The frame-area fraction of the windows is accounted for in the solar energy transmittance,
 and window area distribution is handled using the shares towards cardinal directions.
 ```math
-\\Phi_\\text{sol} = f_\\text{np} g_\\text{gl} A_\\text{w} \\left( I_\\text{diff} + F_\\text{shading} \\sum_{d \\in \\text{N,E,S,W}} w_d I_\\text{dir,d} \\right)
+\\Phi_\\text{sol} = f_\\text{np} g_\\text{gl} A_\\text{w} \\sum_{d \\in \\text{H,V}} \\left( w_d I_\\text{eff,d} \\right)
 ```
 where `f_np` is the assumed [window\\_non\\_perpendicularity\\_correction\\_factor](@ref),
 `g_gl` is the [total\\_normal\\_solar\\_energy\\_transmittance](@ref) of the glazing,
 `A_w` is the area of the windows,
-`I_diff` is the [diffuse\\_solar\\_irradiation\\_W\\_m2](@ref),
-`F_shading` is the assumed [external\\_shading\\_coefficient](@ref),
-`d` represents the cardinal directions,
-`w_d` is the [window\\_area\\_distribution\\_towards\\_cardinal\\_directions](@ref),
-and `I_dir,d` is the [direct\\_solar\\_irradiation\\_W\\_m2](@ref).
+`d` represents the surface orientation (namely horizontal and vertical),
+`w_d` is the [window\\_area\\_distribution](@ref),
+and `I_dir,d` is the total effective solar irradiation on surface with orientation `d`.
+
+Impact of external shading is accounted for when calculating the total effective
+irradiation in `ArBuWe.preprocess_weather`. Similarly, the effective irradiation
+on vertical surfaces accounts for not all vertical surface area facing in the
+correct direction.
 """
 function calculate_window_solar_gains(
     archetype::Object,
@@ -280,11 +275,11 @@ function calculate_window_solar_gains(
     scope.total_normal_solar_energy_transmittance *
     envelope.window.surface_area_m2 *
     sum(
-        mod.window_area_distribution_towards_cardinal_directions(
+        mod.window_area_distribution(
             building_archetype=archetype;
-            cardinal_direction=dir
-        ) * weather.total_effective_solar_irradiation_W_m2[sol_dir_map[dir]]
-        for dir in old_solar_directions
+            direction=dir
+        ) * weather.total_effective_solar_irradiation_W_m2[dir]
+        for dir in solar_directions
     )
 end
 
@@ -295,10 +290,8 @@ end
         scope::ScopeData,
         envelope::EnvelopeData,
         weather::WeatherData;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__
     )
-
-TODO: Revise documentation!
 
 Calculate the solar heat gains [W] per envelope [structure\\_type](@ref).
 
@@ -316,18 +309,21 @@ and the impact of the incident irradiation is applied to the structural node dir
 The solar gains `Φ_sol,st` need to be calculated separately for
 each [structure\\_type](@ref), as they are dependent on the exterior surface resistance:
 ```math
-\\Phi_\\text{sol,st} = R_\\text{e,st} U_\\text{ext,st} A_\\text{st} a_\\text{sol} \\left( I_\\text{diff} + F_\\text{shading} \\frac{\\sum_{d \\in D_\\text{st}} I_\\text{dir,d}}{\\sum_{d \\in D_\\text{st}} 1} \\right)
+\\Phi_\\text{sol,st} = R_\\text{e,st} U_\\text{ext,st} A_\\text{st} a_\\text{sol} I_\\text{eff,st}
 ```
 where `R_e,st` is the [exterior\\_resistance\\_m2K\\_W](@ref) of structure `st`,
 `U_ext,st` is the [external\\_U\\_value\\_to\\_ambient\\_air\\_W\\_m2K](@ref) of structure `st`,
 `A_st` is the surface area of the corresponding envelope structure (See [`EnvelopeData`](@ref)),
 `a_sol` is the assumed [average\\_structural\\_solar\\_absorption\\_coefficient](@ref),
-`I_diff` is the [diffuse\\_solar\\_irradiation\\_W\\_m2](@ref),
-`F_shading` is the assumed [external\\_shading\\_coefficient](@ref),
-`d` represents either horizontal or cardinal directions,
-and `I_dir,d` is the [direct\\_solar\\_irradiation\\_W\\_m2](@ref).
+and `I_eff,st` is the total effective solar irradiation on structure `st`.
+For the effective solar irradiation, exterior walls are assumed to be vertical
+and the roof horizontal in orientation. The base floor is assumed not to benefit
+from any envelope solar gains.
 
-NOTE! The walls are assumed to be distributed equally towards all the cardinal directions.
+Impact of external shading is accounted for when calculating the total effective
+irradiation in `ArBuWe.preprocess_weather`. Similarly, the effective irradiation
+on vertical surfaces accounts for not all vertical surface area facing in the
+correct direction.
 """
 function calculate_envelope_solar_gains(
     archetype::Object,
@@ -363,10 +359,8 @@ end
         archetype::Object,
         scope::ScopeData,
         envelope::EnvelopeData;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__
     )
-
-TODO: REVISE DOCUMENTATION!
 
 Calculate the envelope radiative sky losses [W] per [structure\\_type](@ref).
 
@@ -425,13 +419,13 @@ end
 
 """
     calculate_convective_solar_gains(
-        archetype::Object
-        loads::LoadsData,
-        interior_weight::Real;
-        mod::Module = @__MODULE__,
+        archetype::Object,
+        scope::ScopeData,
+        envelope::EnvelopeData,
+        weather::WeatherData,
+        is_interior_node::Bool;
+        mod::Module=@__MODULE__
     )
-
-TODO: Revise documentation!
 
 Calculate the convective solar heat gains through windows on the `node` in [W].
 
@@ -442,22 +436,25 @@ Essentially, takes the given solar heat gain profile in `loads` and
 multiplies it with the share of interior air on this `node` as well as the
 assumed convective fraction of solar heat gains.
 ```math
-\\Phi_\\text{sol,conv,n} = w_\\text{int,n} f_\\text{sol,conv} \\Phi_\\text{sol}
+\\Phi_\\text{sol,conv,n} = f_\\text{sol,conv} \\Phi_\\text{sol}
 ```
-where `w_int,n` is the [interior\\_air\\_and\\_furniture\\_weight](@ref) of this node,
-`f_sol,conv` is the assumed [solar\\_heat\\_gain\\_convective\\_fraction](@ref),
+where `f_sol,conv` is the assumed [solar\\_heat\\_gain\\_convective\\_fraction](@ref),
 and `Φ_sol` are the total solar heat gains into the building.
 See [`calculate_total_solar_gains`](@ref) for how the total solar heat gains
 are calculated.
+
+Note that convective solar gains are only calculated for the
+[is\\_interior\\_node](@ref).
 """
 function calculate_convective_solar_gains(
     archetype::Object,
     scope::ScopeData,
     envelope::EnvelopeData,
     weather::WeatherData,
-    interior_weight::Real;
+    is_interior_node::Bool;
     mod::Module=@__MODULE__
 )
+    is_interior_node ?
     calculate_window_solar_gains(
         archetype,
         scope,
@@ -465,8 +462,8 @@ function calculate_convective_solar_gains(
         weather;
         mod=mod
     ) *
-    interior_weight *
-    mod.solar_heat_gain_convective_fraction(building_archetype=archetype)
+    mod.solar_heat_gain_convective_fraction(building_archetype=archetype) :
+    0.0
 end
 
 

@@ -10,14 +10,6 @@ using JSON
 
 # Define the set of possible solar directions, currently hard-coded.
 const solar_directions = [:horizontal, :vertical]
-const old_solar_directions = [:horizontal, :north, :east, :west, :south]
-const sol_dir_map = Dict(
-    :horizontal => :horizontal,
-    :north => :vertical,
-    :east => :vertical,
-    :south => :vertical,
-    :west => :vertical
-)
 
 include("types.jl")
 include("base.jl")
@@ -27,7 +19,6 @@ include("process_node.jl")
 include("process_abstract_node.jl")
 include("process_scope.jl")
 include("process_system.jl")
-include("process_abstract_system.jl")
 include("process_weather.jl")
 include("tests.jl")
 include("create_backbone_input.jl")
@@ -52,7 +43,7 @@ export using_spinedb,
     BackboneInput,
     GenericInput
 # Exports for documentation
-export BuildingNodeData, AbstractNode, AbstractProcess
+export BuildingNodeData, AbstractNode
 # Exports for `testscript.jl`
 export run_parameter_tests,
     run_object_class_tests,

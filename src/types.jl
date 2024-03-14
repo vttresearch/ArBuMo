@@ -177,8 +177,6 @@ SpineDataType = Union{Real,TimeSeries,TimePattern,Map}
 
 Store the calculated dimensions of the different parts of the building envelope.
 
-TODO: Revise documentation!
-
 `EnvelopeData` is generated based on the `building_archetype` parameters
 and the aggregated [`ScopeData`](@ref).
 
@@ -186,6 +184,7 @@ NOTE! The `mod` keyword changes from which Module data is accessed from
 by the constructor, `@__MODULE__` by default.
 
 This struct contains the following fields:
+- `archetype::Object`: The [`building_archetype`](@ref) this envelope belongs to.
 - `base_floor::NamedTuple`: Linear thermal bridge length [m] and surface area [m2] of the base floor.
 - `exterior_wall::NamedTuple`: Linear thermal bridge length [m] and surface area [m2] of the load-bearing exterior walls.
 - `light_exterior_wall::NamedTuple`: Linear thermal bridge length [m] and surface area [m2] of the light exterior walls.
@@ -194,14 +193,13 @@ This struct contains the following fields:
 - `roof::NamedTuple`: Linear thermal bridge length [m] and surface area [m2] of the roof.
 - `separating_floor::NamedTuple`: Linear thermal bridge length [m] and one-sided surface area [m2] of the partition floors.
 - `window::NamedTuple`: Linear thermal bridge length [m] and surface area [m2] of the windows.
+- `total_structure_area_m2`: Total surface area of all the structures [m2].
 
 The constructor calls the [`process_building_envelope`](@ref) function
 and checks that the results are sensible.
 """
 struct EnvelopeData <: BuildingDataType
     archetype::Object
-    air_node::Object
-    dhw_node::Object
     base_floor::NamedTuple{
         (:linear_thermal_bridge_length_m, :surface_area_m2),
         Tuple{Float64,Float64},
@@ -243,12 +241,12 @@ struct EnvelopeData <: BuildingDataType
     function EnvelopeData(archetype::Object, data::ScopeData; mod::Module=@__MODULE__)
         EnvelopeData(archetype, process_building_envelope(archetype, data; mod=mod)...)
     end
-    function EnvelopeData(archetype::Object, air_node::Object, dhw_node::Object, args...)
+    function EnvelopeData(archetype::Object, args...)
         for (i, arg) in enumerate(args)
             all(values(arg) .>= 0) ||
                 @warn "`$(fieldnames(EnvelopeData)[i])` for `$(archetype)` shouldn't be negative!"
         end
-        new(archetype, air_node, dhw_node, args...)
+        new(archetype, args...)
     end
 end
 
@@ -256,18 +254,14 @@ end
 """
     LoadsData(
         archetype::Object,
-        scope::ScopeData,
-        envelope::EnvelopeData;
+        scope::ScopeData;
         mod::Module = @__MODULE__,
     ) <: BuildingDataType
 
-TODO: REVISE DOCUMENTATION!
-
-Store the domestic hot water demand and internal/solar heat gains data.
+Store the domestic hot water demand and internal heat gains data.
 
 The domestic hot water demand and internal gains are calculated based on the
-provided base and GFA-scaling parameters,
-while the solar gains are calculated based on the `building_weather` object.
+provided base and GFA-scaling parameters.
 
 NOTE! The `mod` keyword changes from which Module data is accessed from
 by the constructor, `@__MODULE__` by default.
@@ -275,7 +269,6 @@ by the constructor, `@__MODULE__` by default.
 This struct contains the following fields:
 - `domestic_hot_water_demand_W::SpineDataType`: Domestic hot water demand data in [W] for the building.
 - `internal_heat_gains_W::SpineDataType`: Total internal heat gains data in [W] for the building.
-- `envelope_radiative_sky_losses_W::Dict{Object,SpineDataType}`: Estimated radiative heat losses to the sky from the building envelope [W].
 
 The constructor calls the [`process_building_loads`](@ref) function and checks
 that the results are sensible.
@@ -284,12 +277,10 @@ struct LoadsData <: BuildingDataType
     archetype::Object
     domestic_hot_water_demand_W::SpineDataType
     internal_heat_gains_W::SpineDataType
-    envelope_radiative_sky_losses_W::Dict{Object,SpineDataType}
     """
         LoadsData(
             archetype::Object,
-            scope::ScopeData,
-            envelope::EnvelopeData;
+            scope::ScopeData;
             mod::Module = @__MODULE__,
         )
 
@@ -297,13 +288,12 @@ struct LoadsData <: BuildingDataType
     """
     function LoadsData(
         archetype::Object,
-        scope::ScopeData,
-        envelope::EnvelopeData;
+        scope::ScopeData;
         mod::Module=@__MODULE__
     )
-        dhw_demand, int_gains, sky_losses =
-            process_building_loads(archetype, scope, envelope; mod=mod)
-        LoadsData(archetype, dhw_demand, int_gains, sky_losses)
+        dhw_demand, int_gains =
+            process_building_loads(archetype, scope; mod=mod)
+        LoadsData(archetype, dhw_demand, int_gains)
     end
     function LoadsData(archetype::Object, args...)
         for (i, arg) in enumerate(args)
@@ -327,26 +317,27 @@ end
         mod::Module = @__MODULE__,
     ) <: BuildingDataType
 
-TODO: REVISE DOCUMENTATION!
-
 Contains data about how the structures and systems are aggregated into nodes for the lumped-capacitance thermal model.
 
 The `BuildingNodeData` struct aims to remain as human-readable as possible,
 making it a high-level description for what the lumped-capacitance node contains.
-Ultimately, `BuildingNodeData`s are converted into [`AbstractNode`](@ref)s
-for exporting into energy-system-model-specific input data formats.
+Ultimately, `BuildingNodeData`s are further processed into [`AbstractNode`](@ref)s
+for more convenient demand calculations as well as exporting into
+energy-system-model-specific input data formats.
 
 NOTE! The `mod` keyword changes from which Module data is accessed from,
 `@__MODULE__` by default.
 
 This struct contains the following fields:
 - `building_node::Object`: The `building_node` definition used for this `BuildingNodeData`.
+- `heating_set_point_K`: The heating set point for this node [K].
+- `cooling_set_point_K`: 
 - `thermal_mass_base_J_K::SpineDataType`: Optional user-defined base effective thermal mass in [J/K] of the temperature node.
 - `thermal_mass_gfa_scaled_J_K::SpineDataType`: Optional user-defined gross-floor-area-scaling effective thermal mass in [J/m2K] of the temperature node.
 - `thermal_mass_interior_air_and_furniture_J_K::Float64`: The effective thermal mass contribution of the interior air and furniture on this temperature node.
 - `thermal_mass_structures_J_K::Float64`: The effective thermal mass contribution of included structures on this temperature node.
-- `maximum_temperature_K::SpineDataType`: The maximum permitted temperature of the node.
-- `minimum_temperature_K::SpineDataType`: The minimum permitted temperature of the node.
+- `maximum_temperature_deviation_K::SpineDataType`: The maximum permitted temperature deviation above the set point [K].
+- `minimum_temperature_deviation_K::SpineDataType`: The minimum permitted temperature deviation below the set point [K].
 - `self_discharge_base_W_K::SpineDataType`: Optional user-defined base self-discharge rate in [W/K] of the temperature node.
 - `self_discharge_gfa_scaled_W_K::SpineDataType`: Optional user-defined gross-floor-area-scaling self-discharge rate in [W/m2K] of the temperature node.
 - `heat_transfer_coefficients_base_W_K::Dict{Object,SpineDataType}`: Optional user-defined base heat transfer coefficients between this node and other temperature nodes.
@@ -355,14 +346,14 @@ This struct contains the following fields:
 - `heat_transfer_coefficient_structures_exterior_W_K::Float64`: The contribution of included structures on the heat transfer coefficients between this node and the ambient temperature.
 - `heat_transfer_coefficient_structures_ground_W_K::Float64`: The contribution of included structures on the heat transfer coefficient between this node and the effective ground temperature.
 - `heat_transfer_coefficient_windows_W_K::Float64`: Contribution of windows to the heat transfer coefficient from this node to the ambient air.
-- `heat_transfer_coefficient_ventilation_and_infiltration_W_K::Float64`: Contribution of infiltration and ventilation on the heat transfer coefficient between this node and the ambient air.
-- `heat_transfer_coefficient_ventilation_and_infiltration_W_K_HRU_bypass::Float64`: Contribution of infiltration and ventilation on the heat transfer coefficient between this node and the ambient air when HRU is bypassed.
+- `heat_transfer_coefficient_ventilation_and_infiltration_W_K::SpineDataType`: Contribution of infiltration and ventilation on the heat transfer coefficient between this node and the ambient air.
+- `heat_transfer_coefficient_ventilation_and_infiltration_W_K_HRU_bypass::SpineDataType`: Contribution of infiltration and ventilation on the heat transfer coefficient between this node and the ambient air when HRU is bypassed.
 - `heat_transfer_coefficient_thermal_bridges_W_K::Float64`: Contribution of linear thermal bridges on the heat transfer coefficient between this node and the ambient air.
 - `domestic_hot_water_demand_W::SpineDataType`: Domestic hot water demand in [W] on this node.
 - `internal_heat_gains_air_W::SpineDataType`: Convective part of internal heat gains on this node in [W].
 - `internal_heat_gains_structures_W::SpineDataType`: Radiative part of internal heat gains on this node in [W].
 - `radiative_envelope_sky_losses_W::SpineDataType`: Radiative heat losses to the sky from the exposed parts of the building envelope [W].
-- `interior_air_and_furniture_weight::Float64`: The defined share of interior air and furniture assigned to this node.
+- `is_interior_node::Bool`: Flag indicating whether this node is the primary indoor air node.
 
 The constructor calls the [`process_building_node`](@ref) function,
 and checks the values are sensible.
@@ -370,12 +361,14 @@ and checks the values are sensible.
 struct BuildingNodeData <: BuildingDataType
     archetype::Object
     building_node::Object
+    heating_set_point_K::Union{Nothing,SpineDataType}
+    cooling_set_point_K::Union{Nothing,SpineDataType}
     thermal_mass_base_J_K::SpineDataType
     thermal_mass_gfa_scaled_J_K::SpineDataType
     thermal_mass_interior_air_and_furniture_J_K::Float64
     thermal_mass_structures_J_K::Float64
-    maximum_temperature_K::SpineDataType
-    minimum_temperature_K::SpineDataType
+    maximum_temperature_deviation_K::SpineDataType
+    minimum_temperature_deviation_K::SpineDataType
     self_discharge_base_W_K::SpineDataType
     self_discharge_gfa_scaled_W_K::SpineDataType
     heat_transfer_coefficients_base_W_K::Dict{Object,SpineDataType}
@@ -384,13 +377,13 @@ struct BuildingNodeData <: BuildingDataType
     heat_transfer_coefficient_structures_exterior_W_K::Float64
     heat_transfer_coefficient_structures_ground_W_K::Float64
     heat_transfer_coefficient_windows_W_K::Float64
-    heat_transfer_coefficient_ventilation_and_infiltration_W_K::Float64
-    heat_transfer_coefficient_ventilation_and_infiltration_W_K_HRU_bypass::Float64
+    heat_transfer_coefficient_ventilation_and_infiltration_W_K::SpineDataType
+    heat_transfer_coefficient_ventilation_and_infiltration_W_K_HRU_bypass::SpineDataType
     heat_transfer_coefficient_thermal_bridges_W_K::Float64
     domestic_hot_water_demand_W::SpineDataType
     internal_heat_gains_air_W::SpineDataType
     internal_heat_gains_structures_W::SpineDataType
-    interior_air_and_furniture_weight::Float64
+    is_interior_node::Bool
     """
         BuildingNodeData(
             archetype::Object,
@@ -417,14 +410,28 @@ struct BuildingNodeData <: BuildingDataType
             process_building_node(archetype, node, scope, envelope, loads; mod=mod)...,
         )
     end
-    function BuildingNodeData(archetype::Object, building_node::Object, args...)
+    function BuildingNodeData(
+        archetype::Object,
+        building_node::Object,
+        heating_set_point_K::Union{Nothing,SpineDataType},
+        cooling_set_point_K::Union{Nothing,SpineDataType},
+        args...
+    )
+        # Check heating and cooling set point types.
+        if !isa(heating_set_point_K, typeof(cooling_set_point_K))
+            @error """
+            Heating and cooling set points both need to be given if either is!
+            Check data for `$(archetype).$(building_node)`.
+            """
+        end
+        # Check parameter values.
         for (i, arg) in enumerate(args)
             all(collect_leaf_values(arg) .>= 0) || @warn """
             `$(fieldnames(BuildingNodeData)[i+1])` for `$(building_node)` shouldn't have negative values!
             $(count(values(arg) .< 0)) violations found, with a minimum value of $(minimum(values(arg))).
             """
         end
-        new(archetype, building_node, args...)
+        new(archetype, building_node, heating_set_point_K, cooling_set_point_K, args...)
     end
 end
 
@@ -439,25 +446,33 @@ BuildingNodeNetwork = Dict{Object,BuildingNodeData}
 
 """
     WeatherData(
-        weather::Object;
-        mod::Module = @__MODULE__,
-        realization::Symbol = :realization,
+        archetype::Object,
+        scope_data::ScopeData,
+        envelope_data::EnvelopeData,
+        building_nodes::BuildingNodeNetwork;
+        ignore_year::Bool=false,
+        repeat::Bool=false,
+        save_layouts::Bool=true,
+        resampling::Int=5,
+        mod::Module=@__MODULE__,
+        realization::Symbol=:realization
     ) <: BuildingDataType
 
 Process and store the weather data for further calculations.
-
-TODO: Revise documentation!
 
 NOTE! The `mod` keyword changes from which Module data is accessed from
 by the constructor, `@__MODULE__` by default. The `realization` scenario is
 required for effective ground temperature calculations.
 
 This struct contains the following fields:
-- `building_weather::Object`: The `building_weather` object used to construct this `WeatherData`.
-- `ambient_temperature_K::SpineDataType`: Ambient temperature data in [K].
-- `ground_temperature_K::SpineDataType`: Effective ground temperature data in [K].
-- `diffuse_solar_irradiation_W_m2::SpineDataType`: Diffuse solar irradiation data in [W/m2].
-- `direct_solar_irradiation_W_m2::Dict{Symbol,SpineDataType}`: Direct solar irradiation data dictionary, containing irradiation for walls facing in different cardinal directions in [W/m2].
+- `archetype::Object`: The `building_archetype` object used to construct this `WeatherData`.
+- `preliminary_heating_demand_W`: The preliminary aggregated air node heating demand calculated using PyPSA/atlite through ArBuWe.py.
+- `preliminary_cooling_demand_W`: The preliminary aggregated air node cooling demand calculated using PyPSA/atlite through ArBuWe.py.
+- `ambient_temperature_K::SpineDataType`: Average ambient temperature data in [K] for this archetype.
+- `ground_temperature_K::SpineDataType`: Effective ground temperature data in [K] for this archetype.
+- `total_effective_solar_irradiation_W_m2::SpineDataType`: The total effective solar irradiation data in [W/m2] for horizontal and vertical surfaces respectively.
+- `heating_set_point_K`: The `TimeSeries` form indoor air heating set point used for the demand calculations.
+- `cooling_set_point_K`: The `TimeSeries` form indoor air cooling set point used for the demand calculations.
 
 Essentially, the constructor calls the [`process_weather`](@ref) function,
 and checks that the resulting values are sensible.
@@ -480,8 +495,7 @@ struct WeatherData <: BuildingDataType
         archetype::Object,
         scope_data::ScopeData,
         envelope_data::EnvelopeData,
-        building_nodes::BuildingNodeNetwork,
-        loads_data::LoadsData;
+        building_nodes::BuildingNodeNetwork;
         ignore_year::Bool=false,
         repeat::Bool=false,
         save_layouts::Bool=true,
@@ -495,8 +509,7 @@ struct WeatherData <: BuildingDataType
                 archetype,
                 scope_data,
                 envelope_data,
-                building_nodes,
-                loads_data;
+                building_nodes;
                 ignore_year=ignore_year,
                 repeat=repeat,
                 save_layouts=save_layouts,
@@ -530,8 +543,6 @@ Aggregate building systems into processes for the lumped-capacitance thermal mod
 The `BuildingProcessData` struct aims to remain as human-readable as possible,
 making it a high-level description of the properties of a process
 in the lumped-capacitance thermal model.
-Ultimately, `BuildingProcessData`s are converted into [`AbstractProcess`](@ref)s
-for exporting into energy-system-model-specific input data formats.
 
 NOTE! The `mod` keyword changes from which Module data is accessed from,
 `@__MODULE__` by default.
@@ -543,7 +554,7 @@ This struct contains the following fields:
 - `coefficient_of_performance_mode::Symbol`: The mode of the process, either `:heating` or `:cooling`.
 - `maximum_power_base_W::Dict{Tuple{Object,Object},SpineDataType}`: User-defined base maximum power flows in [W] between this process and the nodes.
 - `maximum_power_gfa_scaled_W::Dict{Tuple{Object,Object},SpineDataType}`: User-defined gross-floor-area-scaling maximum power flows in [W] between this process and the nodes.
-- `number_of_processes::Float64`: The number of aggregated processes this one depicts for the large-scale energy system models.
+- `maximum_flows_W::Dict{Tuple{Object,Object},SpineDataType}`: The total maximum flows to/from this process [W], for modelling convenience.
 
 The constructor calls the [`process_building_system`](@ref) function.
 """
@@ -555,7 +566,7 @@ struct BuildingProcessData <: BuildingDataType
     coefficient_of_performance_mode::Symbol
     maximum_power_base_W::Dict{Tuple{Object,Object},SpineDataType}
     maximum_power_gfa_scaled_W::Dict{Tuple{Object,Object},SpineDataType}
-    number_of_processes::Float64
+    maximum_flows_W::Dict{Tuple{Object,Object},SpineDataType}
     """
         BuildingProcessData(
             archetype::Object,
@@ -607,20 +618,26 @@ This struct contains the following fields:
 - `thermal_mass_Wh_K::SpineDataType`: The effective thermal mass of this node in [Wh/K].
 - `self_discharge_coefficient_W_K::SpineDataType`: The self-discharge coefficient in [W/K] from this node.
 - `heat_transfer_coefficients_W_K::Dict{Object,SpineDataType}`: The heat transfer coefficients between this node and other nodes in [W/K].
-- `minimum_temperature_K::SpineDataType`: Minimum permitted temperature of the node in [K].
 - `maximum_temperature_K::SpineDataType`: Maximum permitted temperature of the node in [K].
+- `minimum_temperature_K::SpineDataType`: Minimum permitted temperature of the node in [K].
+- `is_interior_node::Bool`: A flag indicating whether this node is the primary interior air node.
+- `is_dhw::Bool`: A flag indicating whether this node is the primary DHW node.
 
 The constructor calls the [`process_abstract_node`](@ref) function.
 """
 struct AbstractNode <: BuildingDataType
     archetype::Object
     building_node::Object
+    heating_set_point_K::Union{Nothing,SpineDataType}
+    cooling_set_point_K::Union{Nothing,SpineDataType}
+    maximum_temperature_deviation_K::SpineDataType
+    minimum_temperature_deviation_K::SpineDataType
     thermal_mass_Wh_K::SpineDataType
     self_discharge_coefficient_W_K::SpineDataType
     heat_transfer_coefficients_W_K::Dict{Object,SpineDataType}
-    minimum_temperature_K::SpineDataType
-    maximum_temperature_K::SpineDataType
     external_load_W::SpineDataType
+    is_interior_node::Bool
+    is_dhw::Bool
     """
         AbstractNode(
             building_node_network::BuildingNodeNetwork,
@@ -664,51 +681,6 @@ AbstractNodeNetwork = Dict{Object,AbstractNode}
 
 
 """
-    AbstractProcess(process_data::BuildingProcessData; mod::Module = @__MODULE__) <: BuildingDataType
-
-Contain parameters defining a `process` in a model-agnostic manner.
-
-TODO: Revise documentation.
-
-Essentially, a `process` is a commodity transfer/conversion from one `node` to another.
-For the purposes of the `ArBuMo.jl`,
-`processes` only have two attributes of interest:
-The ratio between total input and total output,
-and the maximum flows to and from the connected `nodes`.
-
-NOTE! The `mod` keyword changes from which Module data is accessed from,
-`@__MODULE__` by default.
-
-This struct contains the following fields:
-- `building_process::Object`: The `building_process` definition this `AbstractProcess` depicts.
-- `number_of_processes::Float64`: The number of aggregated processes this one depicts for the large-scale energy system models.
-- `coefficient_of_performance::SpineDataType`: The coefficient of performance of this process.
-- `maximum_flows::Dict{Tuple{Object,Object},SpineDataType}`: The maximum flows to/from this process.
-
-The constructor calls the [`process_abstract_system`](@ref) function.
-"""
-struct AbstractProcess <: BuildingDataType
-    archetype::Object
-    building_process::Object
-    coefficient_of_performance_mode::Symbol
-    coefficient_of_performance::SpineDataType
-    maximum_flows::Dict{Tuple{Object,Object},SpineDataType}
-    """
-        AbstractProcess(process_data::BuildingProcessData; mod::Module = @__MODULE__)
-
-    Creates a new `AbstractProcess` based on `process_data`.
-    """
-    function AbstractProcess(process_data::BuildingProcessData; mod::Module=@__MODULE__)
-        new(
-            process_data.archetype,
-            process_data.building_process,
-            process_abstract_system(process_data; mod=mod)...,
-        )
-    end
-end
-
-
-"""
     ArchetypeBuilding(
         archetype::Object;
         mod::Module = @__MODULE__,
@@ -722,7 +694,7 @@ TODO: Revise documentation!
 The `ArchetypeBuilding` struct stores the information about the objects
 used in its construction, the aggregated statistical and structural properties,
 as well as the [`BuildingNodeData`](@ref) and [`BuildingProcessData`](@ref).
-Furthermore, the relevant [`AbstractNode`](@ref) and [`AbstractProcess`](@ref)
+Furthermore, the relevant [`AbstractNode`](@ref) and [`BuildingProcessData`](@ref)
 used to create the large-scale energy system model input
 are also stored for convenience. The contents of the `ArchetypeBuilding`
 are intended to be as human-readable as possible to allow for
@@ -737,7 +709,6 @@ This struct contains the following fields:
 - `fabrics::Object`: The defined `building_fabrics` for this archetype.
 - `systems::Object`: The defined `building_systems` for this archetype.
 - `loads::Object`: The defined `building_loads` for this archetype.
-- `weather::Object`: The defined `building_weather` for this archetype.
 - `scope_data::ScopeData`: The processed `building_scope` data for this archetype.
 - `envelope_data::EnvelopeData`: The processed envelope properties of this archetype.
 - `building_nodes::BuildingNodeNetwork`: The temperature node network depicting this archetype.
@@ -745,7 +716,6 @@ This struct contains the following fields:
 - `loads_data::LoadsData`: The loads defined for this archetype.
 - `weather_data::WeatherData`: The processed weather data for this archetype.
 - `abstract_nodes::AbstractNodeNetwork`: The processed [`AbstractNode`](@ref)s depicting this archetype.
-- `abstract_processes::Dict{Object,AbstractProcess}`: The processed [`AbstractProcess`](@ref)es in this archetype.
 
 The constructor performs the following steps:
 1. Fetch and create the corresponding [`WeatherData`](@ref).
@@ -755,8 +725,7 @@ The constructor performs the following steps:
 5. Process the temperature nodes using the [`create_building_node_network`](@ref) function.
 6. Create the [`BuildingProcessData`](@ref) for the HVAC system components.
 7. Process the abstract temperature nodes using the [`create_abstract_node_network`](@ref) function based on the [`BuildingNodeNetwork`](@ref).
-8. Create the [`AbstractProcess`](@ref)es corresponding to the [`BuildingProcessData`](@ref)s.
-9. Construct the final `ArchetypeBuilding`.
+8. Construct the final `ArchetypeBuilding`.
 """
 struct ArchetypeBuilding
     archetype::Object
@@ -771,7 +740,6 @@ struct ArchetypeBuilding
     loads_data::LoadsData
     weather_data::WeatherData
     abstract_nodes::AbstractNodeNetwork
-    abstract_processes::Dict{Object,AbstractProcess}
     """
         ArchetypeBuilding(
             archetype::Object;
@@ -814,7 +782,7 @@ struct ArchetypeBuilding
         # Process the data related to the archetype.
         envelope_data = EnvelopeData(archetype, scope_data; mod=mod)
         loads_data =
-            LoadsData(archetype, scope_data, envelope_data; mod=mod)
+            LoadsData(archetype, scope_data; mod=mod)
         building_node_network = create_building_node_network(
             archetype,
             fabrics,
@@ -828,8 +796,7 @@ struct ArchetypeBuilding
             archetype,
             scope_data,
             envelope_data,
-            building_node_network,
-            loads_data;
+            building_node_network;
             mod=mod
         )
         building_processes = Dict(
@@ -852,10 +819,6 @@ struct ArchetypeBuilding
             weather_data;
             mod=mod
         )
-        abstract_processes = Dict{Object,AbstractProcess}(
-            process => AbstractProcess(process_data; mod=mod) for
-            (process, process_data) in building_processes
-        )
 
         # Create the ArchetypeBuilding
         new(
@@ -870,8 +833,7 @@ struct ArchetypeBuilding
             building_processes,
             loads_data,
             weather_data,
-            abstract_nodes,
-            abstract_processes,
+            abstract_nodes
         )
     end
 end
@@ -917,12 +879,12 @@ The constructor performs the following steps:
 """
 struct ArchetypeBuildingResults <: BuildingDataType
     archetype::ArchetypeBuilding
-    heating_temperatures_K::Dict{Object,SpineDataType}
-    cooling_temperatures_K::Dict{Object,SpineDataType}
-    estimated_temperatures_K::Dict{Object,SpineDataType}
+    temperatures_K::Dict{Object,SpineDataType}
     heating_demand_kW::Dict{Object,SpineDataType}
     cooling_demand_kW::Dict{Object,SpineDataType}
     hvac_consumption_kW::Dict{Object,SpineDataType}
+    heating_correction_W::SpineDataType
+    cooling_correction_W::SpineDataType
     """
         ArchetypeBuildingResults(
             archetype::ArchetypeBuilding;
@@ -937,11 +899,11 @@ struct ArchetypeBuildingResults <: BuildingDataType
         mod::Module=@__MODULE__,
         realization::Symbol=:realization
     )
-        heating_temperatures_K,
-        cooling_temperatures_K,
-        estimated_temperatures_K,
+        temperatures_K,
         heating_demand_kW,
-        cooling_demand_kW = solve_heating_demand(
+        cooling_demand_kW,
+        heating_correction_W,
+        cooling_correction_W = solve_heating_demand(
             archetype;
             realization=realization
         )
@@ -953,12 +915,12 @@ struct ArchetypeBuildingResults <: BuildingDataType
         )
         new(
             archetype,
-            heating_temperatures_K,
-            cooling_temperatures_K,
-            estimated_temperatures_K,
+            temperatures_K,
             heating_demand_kW,
             cooling_demand_kW,
             hvac_consumption_kW,
+            heating_correction_W,
+            cooling_correction_W
         )
     end
 end

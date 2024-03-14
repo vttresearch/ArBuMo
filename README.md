@@ -24,6 +24,11 @@ as well as the lumped-capacitance thermal models.
 >Hopefully I'll be done with most of the revisions sometime in late Spring 2024,
 >and can focus on making sure all presented information is up to date.
 
+>[!IMPORTANT]
+>2024-02-06: Enabling investment modelling options for the aggregated building stock heating/cooling demand modelling requires revising the modelling approach,
+>making it less suitable for modelling individual buildings. Future developments *(and breaking changes)* will take place in the forked
+>[ArBuMo](https://github.com/vttresearch/ArBuMo) repository for now, making this repository less likely to receive further updates.
+
 
 ## Key contents
 

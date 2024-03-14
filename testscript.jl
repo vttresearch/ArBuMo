@@ -68,8 +68,7 @@ end
         archetype,
         scope_data_final[only(
             m.building_archetype__building_scope(building_archetype=archetype),
-        )],
-        envelope_data[archetype];
+        )];
         mod=m,
     ) for archetype in m.building_archetype()
 )
@@ -95,7 +94,7 @@ end
 
 ## Test autocreation of `WeatherData` 
 
-@info "Testing automatic creation of `building_weather`..."
+@info "Testing automatic creation of `WeatherData`..."
 @time weather_data = Dict(
     archetype => WeatherData(
         archetype,
@@ -103,9 +102,25 @@ end
             m.building_archetype__building_scope(building_archetype=archetype),
         )],
         envelope_data[archetype],
-        building_node_network[archetype],
-        loads_data[archetype];
+        building_node_network[archetype];
         mod=m,
+    ) for archetype in m.building_archetype()
+)
+
+
+## Test creating `AbstractNodeNetwork` and `AbstractNode`
+
+@info "Processing `AbstractNodeNetwork` and `AbstractNode`..."
+@time abstract_node_network = Dict(
+    archetype => create_abstract_node_network(
+        archetype,
+        scope_data_final[only(
+            m.building_archetype__building_scope(building_archetype=archetype),
+        )],
+        envelope_data[archetype],
+        building_node_network[archetype],
+        weather_data[archetype];
+        mod=m
     ) for archetype in m.building_archetype()
 )
 
@@ -128,32 +143,6 @@ end
             m.building_archetype__building_systems(building_archetype=archetype),
         ),
     )
-)
-
-
-## Test creating `AbstractNodeNetwork` and `AbstractNode`
-
-@info "Processing `AbstractNodeNetwork` and `AbstractNode`..."
-@time abstract_node_network = Dict(
-    archetype => create_abstract_node_network(
-        archetype,
-        scope_data_final[only(
-            m.building_archetype__building_scope(building_archetype=archetype),
-        )],
-        envelope_data[archetype],
-        building_node_network[archetype],
-        weather_data[archetype],
-        mod=m
-    ) for archetype in m.building_archetype()
-)
-
-
-## Test creating `AbstractProcess`es.
-
-@info "Processing `AbstractProcess`..."
-@time abstract_process_data = Dict(
-    (archetype, process) => AbstractProcess(process_data; mod=m)
-    for ((archetype, process), process_data) in building_process_data
 )
 =#
 
@@ -192,7 +181,6 @@ results__system_link_node = initialize_result_classes!(m)
     archetype_results;
     mod=m
 )
-
 
 ## Test creating and writing SpineOpt input
 #=
@@ -246,14 +234,8 @@ end
 display(irradiation_plot)
 
 temp_plt = plot(; title="Node temperatures in [C]")
-for (name, temps) in [
-    "heating" => results.heating_temperatures_K,
-    "cooling" => results.cooling_temperatures_K,
-    "estimated" => results.estimated_temperatures_K
-]
-    for (n, ts) in temps
-        plot!(temp_plt, keys(ts), values(ts) .- 273.15, label=name * ": " * string(n))
-    end
+for (n, ts) in results.temperatures_K
+    plot!(temp_plt, keys(ts), values(ts) .- 273.15, label=string(n))
 end
 display(temp_plt)
 
@@ -273,3 +255,29 @@ for (p, ts) in results.hvac_consumption_kW
     plot!(process_plt, keys(ts), values(ts), label=string(p))
 end
 display(process_plt)
+
+correction_plt = plot(; title="Preliminary demands and corrections in [W]")
+plot!(
+    correction_plt,
+    keys(results.archetype.weather_data.preliminary_heating_demand_W),
+    values(results.archetype.weather_data.preliminary_heating_demand_W),
+    label="Preliminary heating"
+)
+plot!(
+    correction_plt,
+    keys(results.archetype.weather_data.preliminary_cooling_demand_W),
+    values(results.archetype.weather_data.preliminary_cooling_demand_W),
+    label="Preliminary cooling"
+)
+plot!(
+    correction_plt,
+    keys(results.heating_correction_W),
+    values(results.heating_correction_W),
+    label="Heating correction"
+)
+plot!(
+    correction_plt,
+    keys(results.cooling_correction_W),
+    values(results.cooling_correction_W),
+    label="Cooling correction"
+)
