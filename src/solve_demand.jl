@@ -277,17 +277,36 @@ function solve_free_node_temperature_dynamics!(
             )
         )
 
-        # Initialize the temperature from the steady-state.
-        temps_K = zeros(1 + length(indices))
-        temps_K[1] = effective_external_load_W[1] / effective_self_discharge_W_K
-
-        # Solve the rest of the temperatures.
+        # Calculate the exponential coefficient for the dynamics
         expcoeff = exp( # Luckily this is constant for free temperature nodes (structures), saving us time.
             -effective_self_discharge_W_K /
             node_data.thermal_mass_Wh_K *
             delta_t
         )
-        for i in 2:length(temps_K)
+
+        # Initialize temperatures by looping the first 24 hours.
+        initial_temps_K = effective_external_load_W[1:24] ./ effective_self_discharge_W_K
+        for iter in 1:100
+            for i in 2:24
+                initial_temps_K[i] = (
+                    expcoeff * initial_temps_K[i-1] +
+                    effective_external_load_W[i-1] /
+                    effective_self_discharge_W_K * (1 - expcoeff)
+                )
+            end
+            if isapprox(first(initial_temps_K), last(initial_temps_K))
+                break
+            elseif iter == 100
+                @warn "Initial temperature failed to converge!"
+            else
+                initial_temps_K[1] = last(initial_temps_K)
+            end
+        end
+
+        # Solve the rest of the temperatures using the initial temperature.
+        temps_K = zeros(1 + length(indices))
+        temps_K[1] = initial_temps_K[1]
+        for i in eachindex(temps_K)[2:end]
             temps_K[i] = (
                 expcoeff * temps_K[i-1] +
                 effective_external_load_W[i-1] /
