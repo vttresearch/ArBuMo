@@ -105,7 +105,7 @@ function run_parameter_tests(mod::Module=@__MODULE__; limit::Real=Inf)
                     mod;
                     value_min=get(tup, :min, -Inf),
                     value_max=get(tup, :max, Inf),
-                    limit=limit
+                    limit=limit,
                 )
             end
         end
@@ -148,7 +148,7 @@ function run_object_class_tests(mod::Module=@__MODULE__; limit::Real=Inf)
                 mod;
                 count_min=get(tup, :min, 0),
                 count_max=get(tup, :max, Inf),
-                limit=limit
+                limit=limit,
             )
         end
     end

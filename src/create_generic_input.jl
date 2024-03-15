@@ -30,14 +30,16 @@ struct GenericInput <: ModelInput
         building_archetype = deepcopy(mod.building_archetype)
         building_scope = deepcopy(mod.building_scope)
         building_weather = deepcopy(mod.building_weather)
-        building_archetype__building_scope = deepcopy(mod.building_archetype__building_scope)
-        building_archetype__building_weather = deepcopy(mod.building_archetype__building_weather)
+        building_archetype__building_scope =
+            deepcopy(mod.building_archetype__building_scope)
+        building_archetype__building_weather =
+            deepcopy(mod.building_archetype__building_weather)
         new(
             building_archetype,
             building_scope,
             building_weather,
             building_archetype__building_scope,
-            building_archetype__building_weather
+            building_archetype__building_weather,
         )
     end
 end
@@ -81,10 +83,7 @@ Add [`ArchetypeBuildingResults`](@ref) to [`GenericInput`](@ref).
 Essentially goes over the fields of the contained [`ArchetypeBuilding`](@ref)
 and parses them into `Map` for Spine export.
 """
-function add_archetype_to_input!(
-    generic::GenericInput,
-    result::ArchetypeBuildingResults
-)
+function add_archetype_to_input!(generic::GenericInput, result::ArchetypeBuildingResults)
     # Fetch the contained `ArchetypeBuilding`
     archetype = result.archetype
 
@@ -93,18 +92,18 @@ function add_archetype_to_input!(
         generic.building_weather,
         Dict(
             archetype.weather => Dict(
-                :ground_temperature_K => parameter_value(archetype.weather_data.ground_temperature_K)
-            )
-        )
+                :ground_temperature_K =>
+                    parameter_value(archetype.weather_data.ground_temperature_K),
+            ),
+        ),
     )
-    generic.building_weather.parameter_defaults[:ground_temperature_K] = parameter_value(nothing)
+    generic.building_weather.parameter_defaults[:ground_temperature_K] =
+        parameter_value(nothing)
 
     # Add scope data.
     add_object_parameter_values!(
         generic.building_scope,
-        Dict(
-            archetype.scope => Dict(:scope_data => parameter_value(archetype.scope_data))
-        )
+        Dict(archetype.scope => Dict(:scope_data => parameter_value(archetype.scope_data))),
     )
     generic.building_scope.parameter_defaults[:scope_data] = parameter_value(nothing)
 
@@ -122,15 +121,13 @@ function add_archetype_to_input!(
     add_object_parameter_values!(
         generic.building_archetype,
         Dict(
-            archetype.archetype => Dict(
-                f => parameter_value(getfield(archetype, f))
-                for f in fields
-            )
-        )
+            archetype.archetype =>
+                Dict(f => parameter_value(getfield(archetype, f)) for f in fields),
+        ),
     )
     merge!(
         generic.building_archetype.parameter_defaults,
-        Dict(f => parameter_value(nothing) for f in fields)
+        Dict(f => parameter_value(nothing) for f in fields),
     )
     return nothing
 end
@@ -139,21 +136,12 @@ end
 ## Extensions to `SpineInterface.parameter_value`.
 
 function SpineInterface.parameter_value(d::Union{Dict,NamedTuple})
-    return parameter_value(
-        Map(
-            collect(string.(keys(d))),
-            collect(values(d))
-        )
-    )
+    return parameter_value(Map(collect(string.(keys(d))), collect(values(d))))
 end
 function SpineInterface.parameter_value(bdt::BuildingDataType)
     ks = collect(fieldnames(typeof(bdt)))
-    return parameter_value(
-        Map(
-            ks,
-            [getfield(bdt, k) for k in ks]
-        )
-    )
+    return parameter_value(Map(ks, [getfield(bdt, k) for k in ks]))
 end
 SpineInterface.parameter_value(obj::Object) = parameter_value(obj.name)
-SpineInterface.parameter_value(v::Vector{Object}) = parameter_value(string.(getfield.(v, :name)))
+SpineInterface.parameter_value(v::Vector{Object}) =
+    parameter_value(string.(getfield.(v, :name)))

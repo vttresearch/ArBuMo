@@ -40,7 +40,7 @@ function process_weather(
     save_layouts::Bool=false,
     resampling::Int=5,
     mod::Module=@__MODULE__,
-    realization::Symbol=:realization
+    realization::Symbol=:realization,
 )
     # Process the weather and preliminary demand data
     heating_demand_W,
@@ -57,7 +57,7 @@ function process_weather(
         repeat=repeat,
         save_layouts=save_layouts,
         resampling=resampling,
-        mod=mod
+        mod=mod,
     )
 
     # Calculate the effective ground temperature and check it's ok.
@@ -96,7 +96,7 @@ the annual and 3-month moving averages.
 function calculate_effective_ground_temperature(
     ambient_temp_K::TimeSeries;
     coeff::Real=1.7,
-    realization::Symbol=:realization
+    realization::Symbol=:realization,
 )
     # Ambient temperature assumed to repeat when calculating moving averages
     repeating_ambient = parameter_value(
@@ -135,7 +135,7 @@ end
 function calculate_effective_ground_temperature(
     ambient_temp_K::TimePattern;
     coeff::Real=1.7,
-    realization::Symbol=:realization
+    realization::Symbol=:realization,
 )
     @error """
     `TimePattern` form ambient temperatures currently unsupported!
@@ -146,17 +146,17 @@ end
 function calculate_effective_ground_temperature(
     ambient_temp_K::Map;
     coeff::Real=1.7,
-    realization::Symbol=:realization
+    realization::Symbol=:realization,
 )
     return calculate_effective_ground_temperature(
         ambient_temp_K[realization];
-        coeff=coeff
+        coeff=coeff,
     )
 end
 calculate_effective_ground_temperature(
     ambient_temp_K::Real;
     coeff::Real=1.7,
-    realization::Symbol=:realization
+    realization::Symbol=:realization,
 ) = ambient_temp_K
 
 
@@ -207,12 +207,9 @@ function create_building_weather(
     mod::Module=@__MODULE__
 )
     # Fetch air node data, as well as any other nodes with set points.
-    (air_node, air_node_data) = only(
-        filter(pair -> pair[2].is_interior_node, building_nodes)
-    )
-    set_nodes = filter(
-        pair -> !isnothing(pair[2].heating_set_point_K), building_nodes
-    )
+    (air_node, air_node_data) =
+        only(filter(pair -> pair[2].is_interior_node, building_nodes))
+    set_nodes = filter(pair -> !isnothing(pair[2].heating_set_point_K), building_nodes)
     pop!(set_nodes, air_node)
 
     # Import `ArBuWe.py`, doesn't work outside the function for some reason...
@@ -227,8 +224,12 @@ function create_building_weather(
     # Convert heating and cooling set points to TimeSeries value arrays for python xarray processing.
     hourly_inds = collect(DateTime(w_start):Hour(1):DateTime(w_end)+Day(31)) # Need to play it safe because of atlite time stamps.
     zero_ts = TimeSeries(hourly_inds, zeros(size(hourly_inds)))
-    heating_set_point_K = zero_ts + mod.indoor_air_heating_set_point_override_K(building_archetype=archetype)
-    cooling_set_point_K = zero_ts + mod.indoor_air_cooling_set_point_override_K(building_archetype=archetype)
+    heating_set_point_K =
+        zero_ts +
+        mod.indoor_air_heating_set_point_override_K(building_archetype=archetype)
+    cooling_set_point_K =
+        zero_ts +
+        mod.indoor_air_cooling_set_point_override_K(building_archetype=archetype)
 
     # Calculate total internal heat gains including connected set point nodes.
     internal_heat_gains_heating_W =
@@ -237,11 +238,13 @@ function create_building_weather(
                 (
                     set_node_data.heat_transfer_coefficient_structures_interior_W_K +
                     get(set_node_data.heat_transfer_coefficients_base_W_K, air_node, 0.0) +
-                    get(set_node_data.heat_transfer_coefficients_gfa_scaled_W_K, air_node, 0.0)
-                ) * (
-                    set_node_data.heating_set_point_K - heating_set_point_K
-                )
-                for (set_node, set_node_data) in set_nodes
+                    get(
+                        set_node_data.heat_transfer_coefficients_gfa_scaled_W_K,
+                        air_node,
+                        0.0,
+                    )
+                ) * (set_node_data.heating_set_point_K - heating_set_point_K) for
+                (set_node, set_node_data) in set_nodes
             )
         )
     internal_heat_gains_cooling_W =
@@ -250,11 +253,13 @@ function create_building_weather(
                 (
                     set_node_data.heat_transfer_coefficient_structures_interior_W_K +
                     get(set_node_data.heat_transfer_coefficients_base_W_K, air_node, 0.0) +
-                    get(set_node_data.heat_transfer_coefficients_gfa_scaled_W_K, air_node, 0.0)
-                ) * (
-                    set_node_data.cooling_set_point_K - cooling_set_point_K
-                )
-                for (set_node, set_node_data) in set_nodes
+                    get(
+                        set_node_data.heat_transfer_coefficients_gfa_scaled_W_K,
+                        air_node,
+                        0.0,
+                    )
+                ) * (set_node_data.cooling_set_point_K - cooling_set_point_K) for
+                (set_node, set_node_data) in set_nodes
             )
         )
 
@@ -276,14 +281,12 @@ function create_building_weather(
 
     # Calculate horizontal vs vertical window area.
     horizontal_window_surface_area_m2 =
-        envelope_data.window.surface_area_m2 *
-        mod.window_area_distribution(
+        envelope_data.window.surface_area_m2 * mod.window_area_distribution(
             building_archetype=archetype,
-            cardinal_direction=:horizontal
+            cardinal_direction=:horizontal,
         )
     vertical_window_surface_area_m2 =
-        envelope_data.window.surface_area_m2 -
-        horizontal_window_surface_area_m2
+        envelope_data.window.surface_area_m2 - horizontal_window_surface_area_m2
 
     # Call `ArBuWe.py` to fetch and aggregate the weather.
     heating_demand_W,
@@ -317,24 +320,22 @@ function create_building_weather(
     heating_demand_W = _pyseries_to_timeseries(
         heating_demand_W;
         ignore_year=ignore_year,
-        repeat=repeat
+        repeat=repeat,
     )
     cooling_demand_W = _pyseries_to_timeseries(
         cooling_demand_W;
         ignore_year=ignore_year,
-        repeat=repeat
+        repeat=repeat,
     )
     ambient_temperature_K = _pyseries_to_timeseries(
         ambient_temperature_K;
         ignore_year=ignore_year,
-        repeat=repeat
+        repeat=repeat,
     )
     total_effective_irradiation_W_effm2 = Dict(
-        Symbol(key) => _pyseries_to_timeseries(
-            val;
-            ignore_year=ignore_year,
-            repeat=repeat
-        ) for (key, val) in total_effective_irradiation_W_effm2
+        Symbol(key) =>
+            _pyseries_to_timeseries(val; ignore_year=ignore_year, repeat=repeat) for
+        (key, val) in total_effective_irradiation_W_effm2
     )
 
     # Match set point time series lengths with weather.
@@ -342,13 +343,13 @@ function create_building_weather(
         ambient_temperature_K.indexes,
         heating_set_point_K.values[1:length(ambient_temperature_K.indexes)],
         heating_set_point_K.ignore_year,
-        heating_set_point_K.repeat
+        heating_set_point_K.repeat,
     )
     cooling_set_point_K = TimeSeries(
         ambient_temperature_K.indexes,
         cooling_set_point_K.values[1:length(ambient_temperature_K.indexes)],
         cooling_set_point_K.ignore_year,
-        cooling_set_point_K.repeat
+        cooling_set_point_K.repeat,
     )
     return heating_demand_W,
     cooling_demand_W,
@@ -374,7 +375,7 @@ Default is a year-aware repeating timeseries.
 function _pyseries_to_timeseries(
     pyseries::PyCall.PyObject;
     ignore_year::Bool=false,
-    repeat::Bool=false
+    repeat::Bool=false,
 )
     TimeSeries(collect(pyseries.index), pyseries.values, ignore_year, repeat)
 end

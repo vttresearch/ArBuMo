@@ -45,18 +45,17 @@ else
     run_input_data_tests(m)
 
     # Process ScopeData and WeatherData, and create the ArchetypeBuildings
-    scope_data_dictionary, archetype_dictionary =
-        archetype_building_processing(
-            m;
-            save_layouts=save_layouts,
-            realization=realization
-        )
+    scope_data_dictionary, archetype_dictionary = archetype_building_processing(
+        m;
+        save_layouts=save_layouts,
+        realization=realization,
+    )
 
     # Heating/cooling demand calculations.
     archetype_results_dictionary = solve_archetype_building_hvac_demand(
         archetype_dictionary;
         mod=m,
-        realization=realization
+        realization=realization,
     )
 
     # Write the results back into the input datastore
@@ -70,7 +69,7 @@ else
         results__building_archetype__building_process,
         results__system_link_node,
         archetype_results_dictionary;
-        mod=m
+        mod=m,
     )
     @info "Importing `ArchetypeBuildingResults` into `$(results_url)`..."
     @time import_data(
@@ -95,7 +94,7 @@ else
             @time write_to_url(
                 String(input_url),
                 input(archetype_results_dictionary; mod=m);
-                alternative=alternative
+                alternative=alternative,
             )
         end
     end

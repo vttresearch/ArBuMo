@@ -33,10 +33,7 @@ function solve_consumption(
     mod::Module=@__MODULE__
 )
     # Map COP modes to their respective demands.
-    demand_map_kW = Dict(
-        :heating => heating_demand_kW,
-        :cooling => cooling_demand_kW
-    )
+    demand_map_kW = Dict(:heating => heating_demand_kW, :cooling => cooling_demand_kW)
 
     # Initialize a Dict for storing the results, and convert `hvac_demand`
     # into a parameter value for easier access.
@@ -55,9 +52,8 @@ function solve_consumption(
         # Calculate the consumption of the process.
         cons_kW = sum(
             demand_map_kW[process_data.coefficient_of_performance_mode][node] /
-            process_data.coefficient_of_performance
-            for node in output_nodes;
-            init=0.0
+            process_data.coefficient_of_performance for node in output_nodes;
+            init=0.0,
         )
         hvac_consumption_kW[process] = cons_kW
     end

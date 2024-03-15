@@ -286,13 +286,8 @@ struct LoadsData <: BuildingDataType
 
     Construct a new `LoadsData` for the `archetype` based on the given data structs.
     """
-    function LoadsData(
-        archetype::Object,
-        scope::ScopeData;
-        mod::Module=@__MODULE__
-    )
-        dhw_demand, int_gains =
-            process_building_loads(archetype, scope; mod=mod)
+    function LoadsData(archetype::Object, scope::ScopeData; mod::Module=@__MODULE__)
+        dhw_demand, int_gains = process_building_loads(archetype, scope; mod=mod)
         LoadsData(archetype, dhw_demand, int_gains)
     end
     function LoadsData(archetype::Object, args...)
@@ -415,7 +410,7 @@ struct BuildingNodeData <: BuildingDataType
         building_node::Object,
         heating_set_point_K::Union{Nothing,SpineDataType},
         cooling_set_point_K::Union{Nothing,SpineDataType},
-        args...
+        args...,
     )
         # Check heating and cooling set point types.
         if !isa(heating_set_point_K, typeof(cooling_set_point_K))
@@ -501,7 +496,7 @@ struct WeatherData <: BuildingDataType
         save_layouts::Bool=false,
         resampling::Int=5,
         mod::Module=@__MODULE__,
-        realization::Symbol=:realization
+        realization::Symbol=:realization,
     )
         WeatherData(
             archetype,
@@ -515,7 +510,7 @@ struct WeatherData <: BuildingDataType
                 save_layouts=save_layouts,
                 resampling=resampling,
                 mod=mod,
-                realization=realization
+                realization=realization,
             )...,
         )
     end
@@ -665,8 +660,8 @@ struct AbstractNode <: BuildingDataType
                 building_node_network,
                 weather,
                 node;
-                mod=mod
-            )...
+                mod=mod,
+            )...,
         )
     end
 end
@@ -751,7 +746,7 @@ struct ArchetypeBuilding
         archetype::Object;
         save_layouts::Bool=false,
         mod::Module=@__MODULE__,
-        realization::Symbol=:realization
+        realization::Symbol=:realization,
     )
         if length(mod.building_archetype__building_scope(building_archetype=archetype)) !=
            1
@@ -759,11 +754,15 @@ struct ArchetypeBuilding
         end
         scope_data = ScopeData(
             only(mod.building_archetype__building_scope(building_archetype=archetype));
-            mod=mod
+            mod=mod,
         )
         # Create the ArchetypeBuilding using the latter constructor
         ArchetypeBuilding(
-            archetype, scope_data; save_layouts=save_layouts, mod=mod, realization=realization
+            archetype,
+            scope_data;
+            save_layouts=save_layouts,
+            mod=mod,
+            realization=realization,
         )
     end
     function ArchetypeBuilding(
@@ -771,7 +770,7 @@ struct ArchetypeBuilding
         scope_data::ScopeData;
         save_layouts::Bool=false,
         mod::Module=@__MODULE__,
-        realization::Symbol=:realization
+        realization::Symbol=:realization,
     )
         # Fetch the definitions related to the archetype.
         scope = scope_data.building_scope
@@ -779,13 +778,11 @@ struct ArchetypeBuilding
             only(mod.building_archetype__building_fabrics(building_archetype=archetype))
         systems =
             only(mod.building_archetype__building_systems(building_archetype=archetype))
-        loads =
-            only(mod.building_archetype__building_loads(building_archetype=archetype))
+        loads = only(mod.building_archetype__building_loads(building_archetype=archetype))
 
         # Process the data related to the archetype.
         envelope_data = EnvelopeData(archetype, scope_data; mod=mod)
-        loads_data =
-            LoadsData(archetype, scope_data; mod=mod)
+        loads_data = LoadsData(archetype, scope_data; mod=mod)
         building_node_network = create_building_node_network(
             archetype,
             fabrics,
@@ -793,7 +790,7 @@ struct ArchetypeBuilding
             scope_data,
             envelope_data,
             loads_data;
-            mod=mod
+            mod=mod,
         )
         weather_data = WeatherData(
             archetype,
@@ -801,7 +798,7 @@ struct ArchetypeBuilding
             envelope_data,
             building_node_network;
             save_layouts=save_layouts,
-            mod=mod
+            mod=mod,
         )
         building_processes = Dict(
             process => BuildingProcessData(
@@ -809,7 +806,7 @@ struct ArchetypeBuilding
                 process,
                 scope_data,
                 weather_data;
-                mod=mod
+                mod=mod,
             ) for process in
             mod.building_systems__building_process(building_systems=systems)
         )
@@ -821,7 +818,7 @@ struct ArchetypeBuilding
             envelope_data,
             building_node_network,
             weather_data;
-            mod=mod
+            mod=mod,
         )
 
         # Create the ArchetypeBuilding
@@ -837,7 +834,7 @@ struct ArchetypeBuilding
             building_processes,
             loads_data,
             weather_data,
-            abstract_nodes
+            abstract_nodes,
         )
     end
 end
@@ -901,22 +898,15 @@ struct ArchetypeBuildingResults <: BuildingDataType
     function ArchetypeBuildingResults(
         archetype::ArchetypeBuilding;
         mod::Module=@__MODULE__,
-        realization::Symbol=:realization
+        realization::Symbol=:realization,
     )
         temperatures_K,
         heating_demand_kW,
         cooling_demand_kW,
         heating_correction_W,
-        cooling_correction_W = solve_heating_demand(
-            archetype;
-            realization=realization
-        )
-        hvac_consumption_kW = solve_consumption(
-            archetype,
-            heating_demand_kW,
-            cooling_demand_kW;
-            mod=mod
-        )
+        cooling_correction_W = solve_heating_demand(archetype; realization=realization)
+        hvac_consumption_kW =
+            solve_consumption(archetype, heating_demand_kW, cooling_demand_kW; mod=mod)
         new(
             archetype,
             temperatures_K,
@@ -924,7 +914,7 @@ struct ArchetypeBuildingResults <: BuildingDataType
             cooling_demand_kW,
             hvac_consumption_kW,
             heating_correction_W,
-            cooling_correction_W
+            cooling_correction_W,
         )
     end
 end

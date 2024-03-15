@@ -150,8 +150,12 @@ end
 
 @info "Processing `ArchetypeBuilding` objects..."
 @time archetype_dictionary = Dict(
-    archetype => ArchetypeBuilding(archetype; mod=m, save_layouts=false, realization=realization) for
-    archetype in m.building_archetype(:DH1_LBM)
+    archetype => ArchetypeBuilding(
+        archetype;
+        mod=m,
+        save_layouts=false,
+        realization=realization,
+    ) for archetype in m.building_archetype(:DH1_LBM)
 )
 
 
@@ -159,11 +163,8 @@ end
 
 @info "Creating `ArchetypeBuildingResults`..."
 @time archetype_results = Dict(
-    archetype => ArchetypeBuildingResults(
-        val;
-        mod=m,
-        realization=realization
-    ) for (archetype, val) in archetype_dictionary
+    archetype => ArchetypeBuildingResults(val; mod=m, realization=realization) for
+    (archetype, val) in archetype_dictionary
 )
 
 
@@ -181,7 +182,7 @@ results__system_link_node = initialize_result_classes!(m)
     results__building_archetype__building_process,
     results__system_link_node,
     archetype_results;
-    mod=m
+    mod=m,
 )
 
 
@@ -215,13 +216,13 @@ plot!(
     weather_plt,
     keys(results.archetype.weather_data.ambient_temperature_K),
     values(results.archetype.weather_data.ambient_temperature_K) .- 273.15;
-    label="Ambient"
+    label="Ambient",
 )
 plot!(
     weather_plt,
     keys(results.archetype.weather_data.ground_temperature_K),
     values(results.archetype.weather_data.ground_temperature_K) .- 273.15;
-    label="Ground"
+    label="Ground",
 )
 display(weather_plt)
 
@@ -231,7 +232,7 @@ for dir in ArBuMo.solar_directions
         irradiation_plot,
         keys(results.archetype.weather_data.total_effective_solar_irradiation_W_m2[dir]),
         values(results.archetype.weather_data.total_effective_solar_irradiation_W_m2[dir]),
-        label=string(dir)
+        label=string(dir),
     )
 end
 display(irradiation_plot)
@@ -243,10 +244,8 @@ end
 display(temp_plt)
 
 hvac_plt = plot(; title="Heating/cooling demand in [kW]")
-for (name, demand) in [
-    "heating" => results.heating_demand_kW,
-    "cooling" => results.cooling_demand_kW
-]
+for (name, demand) in
+    ["heating" => results.heating_demand_kW, "cooling" => results.cooling_demand_kW]
     for (n, ts) in demand
         plot!(hvac_plt, keys(ts), values(ts), label=name * ": " * string(n))
     end
@@ -264,23 +263,23 @@ plot!(
     correction_plt,
     keys(results.archetype.weather_data.preliminary_heating_demand_W),
     values(results.archetype.weather_data.preliminary_heating_demand_W),
-    label="Preliminary heating"
+    label="Preliminary heating",
 )
 plot!(
     correction_plt,
     keys(results.archetype.weather_data.preliminary_cooling_demand_W),
     values(results.archetype.weather_data.preliminary_cooling_demand_W),
-    label="Preliminary cooling"
+    label="Preliminary cooling",
 )
 plot!(
     correction_plt,
     keys(results.heating_correction_W),
     values(results.heating_correction_W),
-    label="Heating correction"
+    label="Heating correction",
 )
 plot!(
     correction_plt,
     keys(results.cooling_correction_W),
     values(results.cooling_correction_W),
-    label="Cooling correction"
+    label="Cooling correction",
 )

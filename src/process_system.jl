@@ -60,11 +60,7 @@ function process_building_system(
         mod.building_process__direction__building_node(building_process=process)
     )
     # Calculate the total maximum flows for convenience.
-    maximum_flows_W = mergewith(
-        +,
-        maximum_power_basis_W,
-        maximum_power_gfa_scaled_W,
-    )
+    maximum_flows_W = mergewith(+, maximum_power_basis_W, maximum_power_gfa_scaled_W)
     filter!(pair -> pair[2] != 0, maximum_flows_W)
 
     # Return the components of `BuildingProcessData`.
@@ -166,7 +162,7 @@ function calculate_cop(
                 lin = LinearInterpolation(
                     [temps[1], temps[2]],
                     [temps[4], temps[3]];
-                    extrapolation_bc=Flat()
+                    extrapolation_bc=Flat(),
                 )
                 heating_curve = x -> lin(x) # Generic function for linear interpolation.
             else

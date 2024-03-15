@@ -49,7 +49,7 @@ This function performs the following steps:
 function archetype_building_processing(
     mod::Module=@__MODULE__;
     save_layouts::Bool=false,
-    realization::Symbol=:realization
+    realization::Symbol=:realization,
 )
     # Process relevant `ScopeData` objects.
     @info "Processing `building_scope` objects into `ScopeData` for `scope_data_dictionary`..."
@@ -66,7 +66,7 @@ function archetype_building_processing(
             scope_data_dictionary[archetype];
             save_layouts=save_layouts,
             mod=mod,
-            realization=realization
+            realization=realization,
         ) for archetype in mod.building_archetype()
     )
 
@@ -94,7 +94,7 @@ the [`ArchetypeBuildingResults`](@ref) for each entry in the `archetype_dictiona
 function solve_archetype_building_hvac_demand(
     archetype_dictionary::Dict{Object,ArchetypeBuilding};
     mod::Module=@__MODULE__,
-    realization::Symbol=:realization
+    realization::Symbol=:realization,
 )
     # Heating/cooling demand calculations.
     @info "Calculating heating/cooling demand..."
@@ -102,7 +102,7 @@ function solve_archetype_building_hvac_demand(
         archetype => ArchetypeBuildingResults(
             archetype_building;
             mod=mod,
-            realization=realization
+            realization=realization,
         ) for (archetype, archetype_building) in archetype_dictionary
     )
 
@@ -126,8 +126,7 @@ function initialize_result_classes!(mod::Module)
         Array{RelationshipLike,1}(),
         Dict{RelationshipLike,Dict{Symbol,SpineInterface.ParameterValue}}(),
         Dict(
-            param => parameter_value(nothing) for
-            param in [
+            param => parameter_value(nothing) for param in [
                 :number_of_buildings,
                 :average_gross_floor_area_per_building_m2,
                 :ambient_temperature_K,
@@ -135,43 +134,23 @@ function initialize_result_classes!(mod::Module)
                 :preliminary_heating_demand_W,
                 :preliminary_cooling_demand_W,
                 :heating_correction_W,
-                :cooling_correction_W
+                :cooling_correction_W,
             ]
-        )
+        ),
     )
     # Create the associated parameters
-    number_of_buildings = Parameter(
-        :number_of_buildings,
-        [results__building_archetype]
-    )
-    average_gross_floor_area_per_building_m2 = Parameter(
-        :average_gross_floor_area_per_building_m2,
-        [results__building_archetype]
-    )
-    ambient_temperature_K = Parameter(
-        :ambient_temperature_K,
-        [results__building_archetype]
-    )
-    ground_temperature_K = Parameter(
-        :ground_temperature_K,
-        [results__building_archetype]
-    )
-    preliminary_heating_demand_W = Parameter(
-        :preliminary_heating_demand_W,
-        [results__building_archetype]
-    )
-    preliminary_cooling_demand_W = Parameter(
-        :preliminary_cooling_demand_W,
-        [results__building_archetype]
-    )
-    heating_correction_W = Parameter(
-        :heating_correction_W,
-        [results__building_archetype]
-    )
-    cooling_correction_W = Parameter(
-        :preliminary_heating_demand_W,
-        [results__building_archetype]
-    )
+    number_of_buildings = Parameter(:number_of_buildings, [results__building_archetype])
+    average_gross_floor_area_per_building_m2 =
+        Parameter(:average_gross_floor_area_per_building_m2, [results__building_archetype])
+    ambient_temperature_K = Parameter(:ambient_temperature_K, [results__building_archetype])
+    ground_temperature_K = Parameter(:ground_temperature_K, [results__building_archetype])
+    preliminary_heating_demand_W =
+        Parameter(:preliminary_heating_demand_W, [results__building_archetype])
+    preliminary_cooling_demand_W =
+        Parameter(:preliminary_cooling_demand_W, [results__building_archetype])
+    heating_correction_W = Parameter(:heating_correction_W, [results__building_archetype])
+    cooling_correction_W =
+        Parameter(:preliminary_heating_demand_W, [results__building_archetype])
 
     # Initialize archetype node results
     results__building_archetype__building_node = RelationshipClass(
@@ -186,8 +165,10 @@ function initialize_result_classes!(mod::Module)
     )
     # Create the associated parameters
     temperature_K = Parameter(:temperature_K, [results__building_archetype__building_node])
-    heating_demand_kW = Parameter(:heating_demand_kW, [results__building_archetype__building_node])
-    cooling_demand_kW = Parameter(:cooling_demand_kW, [results__building_archetype__building_node])
+    heating_demand_kW =
+        Parameter(:heating_demand_kW, [results__building_archetype__building_node])
+    cooling_demand_kW =
+        Parameter(:cooling_demand_kW, [results__building_archetype__building_node])
 
     # Initialize process results
     results__building_archetype__building_process = RelationshipClass(
@@ -197,20 +178,16 @@ function initialize_result_classes!(mod::Module)
         Dict{ObjectLike,Dict{Symbol,SpineInterface.ParameterValue}}(),
         Dict(
             :hvac_consumption_per_building_kW => parameter_value(nothing),
-            :hvac_consumption_MW => parameter_value(nothing)
-        )
+            :hvac_consumption_MW => parameter_value(nothing),
+        ),
     )
     # Create the associated parameter
-    hvac_consumption_per_building_kW =
-        Parameter(
-            :hvac_consumption_per_building_kW,
-            [results__building_archetype__building_process]
-        )
+    hvac_consumption_per_building_kW = Parameter(
+        :hvac_consumption_per_building_kW,
+        [results__building_archetype__building_process],
+    )
     hvac_consumption_MW =
-        Parameter(
-            :hvac_consumption_MW,
-            [results__building_archetype__building_process]
-        )
+        Parameter(:hvac_consumption_MW, [results__building_archetype__building_process])
 
     # Initialize system link node results
     results__system_link_node = ObjectClass(
@@ -224,16 +201,14 @@ function initialize_result_classes!(mod::Module)
 
     # Evaluate the relationship classes and parameters to the desired module.
     @eval mod begin
-        results__building_archetype =
-            $results__building_archetype
+        results__building_archetype = $results__building_archetype
         results__building_archetype__building_node =
             $results__building_archetype__building_node
         results__building_archetype__building_process =
             $results__building_archetype__building_process
         results__system_link_node = $results__system_link_node
         number_of_buildings = $number_of_buildings
-        average_gross_floor_area_per_building_m2 =
-            $average_gross_floor_area_per_building_m2
+        average_gross_floor_area_per_building_m2 = $average_gross_floor_area_per_building_m2
         ambient_temperature_K = $ambient_temperature_K
         ground_temperature_K = $ground_temperature_K
         preliminary_heating_demand_W = $preliminary_heating_demand_W
@@ -287,32 +262,25 @@ function add_results!(
         results__building_archetype,
         Dict(
             (building_archetype=r.archetype.archetype,) => Dict(
-                :number_of_buildings => parameter_value(
-                    r.archetype.scope_data.number_of_buildings
-                ),
+                :number_of_buildings =>
+                    parameter_value(r.archetype.scope_data.number_of_buildings),
                 :average_gross_floor_area_per_building_m2 => parameter_value(
-                    r.archetype.scope_data.average_gross_floor_area_m2_per_building
+                    r.archetype.scope_data.average_gross_floor_area_m2_per_building,
                 ),
-                :ambient_temperature_K => parameter_value(
-                    r.archetype.weather_data.ambient_temperature_K
-                ),
-                :ground_temperature_K => parameter_value(
-                    r.archetype.weather_data.ground_temperature_K
-                ),
+                :ambient_temperature_K =>
+                    parameter_value(r.archetype.weather_data.ambient_temperature_K),
+                :ground_temperature_K =>
+                    parameter_value(r.archetype.weather_data.ground_temperature_K),
                 :preliminary_heating_demand_W => parameter_value(
-                    r.archetype.weather_data.preliminary_heating_demand_W
+                    r.archetype.weather_data.preliminary_heating_demand_W,
                 ),
                 :preliminary_cooling_demand_W => parameter_value(
-                    r.archetype.weather_data.preliminary_cooling_demand_W
+                    r.archetype.weather_data.preliminary_cooling_demand_W,
                 ),
-                :heating_correction_W => parameter_value(
-                    r.heating_correction_W
-                ),
-                :cooling_correction_W => parameter_value(
-                    r.cooling_correction_W
-                )
+                :heating_correction_W => parameter_value(r.heating_correction_W),
+                :cooling_correction_W => parameter_value(r.cooling_correction_W),
             ) for r in results
-        )
+        ),
     )
 
     # Add `results__building_archetype__building_node` results.
@@ -333,15 +301,13 @@ function add_results!(
         Dict(
             (building_archetype=r.archetype.archetype, building_process=process) =>
                 Dict(
-                    :hvac_consumption_per_building_kW => parameter_value(
-                        r.hvac_consumption_kW[process]
-                    ),
+                    :hvac_consumption_per_building_kW =>
+                        parameter_value(r.hvac_consumption_kW[process]),
                     :hvac_consumption_MW => parameter_value(
                         r.hvac_consumption_kW[process] / 1e3 *
-                        r.archetype.scope_data.number_of_buildings
-                    )
-                )
-            for r in results for process in keys(r.hvac_consumption_kW)
+                        r.archetype.scope_data.number_of_buildings,
+                    ),
+                ) for r in results for process in keys(r.hvac_consumption_kW)
         ),
     )
 
@@ -354,12 +320,11 @@ function add_results!(
                     sum(
                         mod.hvac_consumption_MW(
                             building_archetype=arch,
-                            building_process=p
-                        )
-                        for p in mod.results__building_archetype__building_process(
-                            building_archetype=arch
-                        )
-                        if p in mod.building_process__direction__building_node(
+                            building_process=p,
+                        ) for
+                        p in mod.results__building_archetype__building_process(
+                            building_archetype=arch,
+                        ) if p in mod.building_process__direction__building_node(
                             direction=mod.direction(:from_node),
                             building_node=sys_link_n,
                         )
@@ -367,7 +332,7 @@ function add_results!(
                 ),
             ) for (arch, sys_link_n) in mod.building_archetype__system_link_node(
                 building_archetype=collect(keys(results_dictionary));
-                _compact=false
+                _compact=false,
             )
         ),
     )
