@@ -178,20 +178,3 @@ For [building\_loads](@ref), all the important information is contained in the
 
 Ultimately, each [building\_loads](@ref) is processed into a [`LoadsData`](@ref)
 by the main program described by the [Overview of the workflow](@ref) section.
-
-
-## The `building_weather` definition
-
-The [building\_weather](@ref) objects are used for defining weather data for
-a [building\_archetype](@ref). Of all the definitions described in this section,
-it is the only non-required one. In case the relationship:
-- [building\_archetype\_\_building\_weather](@ref): Defines which [building\_weather](@ref) to use for the [building\_archetype](@ref).
-is left undefined, the [ArchetypeBuildingWeather.py](@ref) sub-module will be used
-in an attempt to automatically fetch and process the weather data necessary for
-creating the archetype lumped-capacitance thermal model.
-
-In case the user wants to specify the weather data exactly, the following
-[Object parameters](@ref) are required:
-- [ambient\_temperature\_K](@ref): The ambient temperature in [K].
-- [diffuse\_solar\_irradiation\_W\_m2](@ref): The diffuse horisontal irradiation in [W/m2].
-- [direct\_solar\_irradiation\_W\_m2](@ref): A `Map` specifying the direct irradiation for vertical surfaces facing in all four cardinal directions in [W/m2].

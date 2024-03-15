@@ -69,8 +69,8 @@
         [
             "building_node",
             "DHWT_daily_EN",
-            "domestic_hot_water_demand_weight",
-            1.0,
+            "is_domestic_hot_water_node",
+            true,
             "Base"
         ],
         [
@@ -97,8 +97,8 @@
         [
             "building_node",
             "DHWT_daily_YM_1000-3000l",
-            "domestic_hot_water_demand_weight",
-            1.0,
+            "is_domestic_hot_water_node",
+            true,
             "Base"
         ],
         [
@@ -132,8 +132,8 @@
         [
             "building_node",
             "DHWT_daily_YM_150-500l",
-            "domestic_hot_water_demand_weight",
-            1.0,
+            "is_domestic_hot_water_node",
+            true,
             "Base"
         ],
         [

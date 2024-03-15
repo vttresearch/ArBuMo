@@ -32,9 +32,5 @@ function write_to_url(url::String, input::ModelInput; alternative::String="")
     # Merge data into a single Dict and import.
     data = merge(append!, data...)
     @info "Importing `$(typeof(input))` to datastore at `$(url)`..."
-    @time import_data(
-        url,
-        data,
-        "Import `$(typeof(input))` from `ArBuMo` output.",
-    )
+    @time import_data(url, data, "Import `$(typeof(input))` from `ArBuMo` output.")
 end

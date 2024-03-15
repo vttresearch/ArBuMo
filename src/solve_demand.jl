@@ -89,29 +89,19 @@ while the vector selection is essentially only the selected column in vector for
 """
 function solve_heating_demand(
     archetype::ArchetypeBuilding;
-    realization::Symbol=:realization
+    realization::Symbol=:realization,
 )
     # Categorize nodes based on their role.
-    (air_node, air_node_data) = only(
-        filter(
-            pair -> pair[2].is_interior_node, archetype.abstract_nodes
-        )
-    )
-    (dhw_node, dhw_node_data) = only(
-        filter(
-            pair -> pair[2].is_dhw, archetype.abstract_nodes
-        )
-    )
-    set_nodes = filter(
-        pair -> !isnothing(pair[2].heating_set_point_K), archetype.abstract_nodes
-    )
+    (air_node, air_node_data) =
+        only(filter(pair -> pair[2].is_interior_node, archetype.abstract_nodes))
+    (dhw_node, dhw_node_data) =
+        only(filter(pair -> pair[2].is_dhw, archetype.abstract_nodes))
+    set_nodes =
+        filter(pair -> !isnothing(pair[2].heating_set_point_K), archetype.abstract_nodes)
     free_nodes = Dict(setdiff(archetype.abstract_nodes, set_nodes)...)
 
     # Determine the temporal structure
-    indices, delta_t = determine_temporal_structure(
-        archetype;
-        realization=realization
-    )
+    indices, delta_t = determine_temporal_structure(archetype; realization=realization)
     zero_ts = TimeSeries(indices, zeros(size(indices)))
 
     # Estimated node temperatures based on heating and cooling demand ratio.
@@ -124,10 +114,11 @@ function solve_heating_demand(
     replace!(x -> isnan(x) ? 0.5 : x, hc_ratio.values)
 
     temperatures_K = Dict(
-        node => zero_ts +
-                hc_ratio * node_data.heating_set_point_K +
-                (1 - hc_ratio) * node_data.cooling_set_point_K
-        for (node, node_data) in set_nodes
+        node =>
+            zero_ts +
+            hc_ratio * node_data.heating_set_point_K +
+            (1 - hc_ratio) * node_data.cooling_set_point_K for
+        (node, node_data) in set_nodes
     )
 
     # Calculate the free node temperatures based on set points.
@@ -136,37 +127,33 @@ function solve_heating_demand(
         free_nodes,
         set_nodes,
         indices,
-        delta_t
+        delta_t,
     )
 
     # Calculate the heating demand for the indoor air node
-    heating_demand_kW,
-    cooling_demand_kW,
-    heating_correction_W,
-    cooling_correction_W = calculate_final_heating_demand(
-        archetype,
-        temperatures_K,
-        air_node,
-        free_nodes
-    )
+    heating_demand_kW, cooling_demand_kW, heating_correction_W, cooling_correction_W =
+        calculate_final_heating_demand(archetype, temperatures_K, air_node, free_nodes)
 
     # Estimated node temperatures based on heating and cooling demand ratio.
     hc_ratio = heating_demand_kW / (heating_demand_kW + cooling_demand_kW)
     replace!(x -> isnan(x) ? 0.5 : x, hc_ratio.values)
 
     # Solve DHW node demand.
-    dhw_demand_kW = solve_dhw_demand(
-        archetype,
-        dhw_node_data,
-        temperatures_K,
-        hc_ratio
-    ) # Scaling to kWh internally within the function!
+    dhw_demand_kW = solve_dhw_demand(archetype, dhw_node_data, temperatures_K, hc_ratio) # Scaling to kWh internally within the function!
+
+    # Initialize the heating and cooling demand result dictionaries.
+    heating_demand_dict_kW =
+        Dict(node => zero_ts for node in keys(archetype.abstract_nodes))
+    cooling_demand_dict_kW =
+        Dict(node => zero_ts for node in keys(archetype.abstract_nodes))
+    # Save the results of interest into the result dictionaries
+    heating_demand_dict_kW[air_node] = heating_demand_kW
+    heating_demand_dict_kW[dhw_node] = dhw_demand_kW
+    cooling_demand_dict_kW[air_node] = cooling_demand_kW
+
     return temperatures_K,
-    Dict(
-        air_node => heating_demand_kW,
-        dhw_node => dhw_demand_kW
-    ),
-    Dict(air_node => cooling_demand_kW),
+    heating_demand_dict_kW,
+    cooling_demand_dict_kW,
     heating_correction_W,
     cooling_correction_W
 end
@@ -190,15 +177,14 @@ stochastic input.
 """
 function determine_temporal_structure(
     archetype::ArchetypeBuilding;
-    realization::Symbol=:realization
+    realization::Symbol=:realization,
 )
     # Check that all nodes have identical `external_load_W` time series indices.
-    indices =
-        keys(
-            parameter_value(first(archetype.abstract_nodes)[2].external_load_W)(
-                scenario=realization,
-            )
-        )
+    indices = keys(
+        parameter_value(first(archetype.abstract_nodes)[2].external_load_W)(
+            scenario=realization,
+        ),
+    )
     if !all(
         keys(parameter_value(n.external_load_W)(scenario=realization)) == indices for
         (k, n) in archetype.abstract_nodes
@@ -211,7 +197,7 @@ function determine_temporal_structure(
 
     # Indices must be a Vector{DateTime}, 24-hours simulated by default.
     if !isa(indices, Vector{DateTime})
-        indices = [DateTime(2) + Hour(i) for i in 0:23]
+        indices = [DateTime(2) + Hour(i) for i = 0:23]
     end
 
     # Calculate the delta t in hours, all time steps need to have constant value.
@@ -245,43 +231,57 @@ function solve_free_node_temperature_dynamics!(
     free_nodes::Dict{Object,AbstractNode},
     set_nodes::Dict{Object,AbstractNode},
     indices::Vector{DateTime},
-    delta_t::Number
+    delta_t::Number,
 )
     for (node, node_data) in free_nodes
         # Account for set temperature node heat transfers
         effective_self_discharge_W_K = (
-            node_data.self_discharge_coefficient_W_K +
-            sum(
-                get(node_data.heat_transfer_coefficients_W_K, set_node, 0.0)
-                for (set_node, set_node_data) in set_nodes
+            node_data.self_discharge_coefficient_W_K + sum(
+                get(node_data.heat_transfer_coefficients_W_K, set_node, 0.0) for
+                (set_node, set_node_data) in set_nodes
             )
         )
         effective_external_load_W = collect(
             values(
-                node_data.external_load_W +
-                sum(
+                node_data.external_load_W + sum(
                     get(node_data.heat_transfer_coefficients_W_K, set_node, 0.0) *
-                    temperatures_K[set_node]
-                    for (set_node, set_node_data) in set_nodes
-                )
-            )
+                    temperatures_K[set_node] for (set_node, set_node_data) in set_nodes
+                ),
+            ),
         )
 
-        # Initialize the temperature from the steady-state.
-        temps_K = zeros(1 + length(indices))
-        temps_K[1] = effective_external_load_W[1] / effective_self_discharge_W_K
-
-        # Solve the rest of the temperatures.
+        # Calculate the exponential coefficient for the dynamics
         expcoeff = exp( # Luckily this is constant for free temperature nodes (structures), saving us time.
-            -effective_self_discharge_W_K /
-            node_data.thermal_mass_Wh_K *
-            delta_t
+            -effective_self_discharge_W_K / node_data.thermal_mass_Wh_K * delta_t,
         )
-        for i in 2:length(temps_K)
+
+        # Initialize temperatures by looping the first 24 hours.
+        initial_temps_K = effective_external_load_W[1:24] ./ effective_self_discharge_W_K
+        for iter = 1:100
+            for i = 2:24
+                initial_temps_K[i] = (
+                    expcoeff * initial_temps_K[i-1] +
+                    effective_external_load_W[i-1] / effective_self_discharge_W_K *
+                    (1 - expcoeff)
+                )
+            end
+            if isapprox(first(initial_temps_K), last(initial_temps_K))
+                break
+            elseif iter == 100
+                @warn "Initial temperature failed to converge!"
+            else
+                initial_temps_K[1] = last(initial_temps_K)
+            end
+        end
+
+        # Solve the rest of the temperatures using the initial temperature.
+        temps_K = zeros(1 + length(indices))
+        temps_K[1] = initial_temps_K[1]
+        for i in eachindex(temps_K)[2:end]
             temps_K[i] = (
                 expcoeff * temps_K[i-1] +
-                effective_external_load_W[i-1] /
-                effective_self_discharge_W_K * (1 - expcoeff)
+                effective_external_load_W[i-1] / effective_self_discharge_W_K *
+                (1 - expcoeff)
             )
         end
         popfirst!(temps_K) # Remove initial temperature.
@@ -309,42 +309,35 @@ function calculate_final_heating_demand(
     archetype::ArchetypeBuilding,
     temperatures_K::Dict{Object,T} where {T<:SpineDataType},
     air_node::Object,
-    free_nodes::Dict{Object,AbstractNode}
+    free_nodes::Dict{Object,AbstractNode},
 )
     # Calculate the heating and cooling demand corrections from free nodes.
     # Set nodes already accounted for in `create_building_weather`.
     heating_correction_W = sum(
         abstract_node.heat_transfer_coefficients_W_K[air_node] *
-        (
-            archetype.weather_data.heating_set_point_K -
-            temperatures_K[node]
-        )
-        for (node, abstract_node) in free_nodes
+        (archetype.weather_data.heating_set_point_K - temperatures_K[node]) for
+        (node, abstract_node) in free_nodes
     )
     cooling_correction_W = sum(
         abstract_node.heat_transfer_coefficients_W_K[air_node] *
-        (
-            temperatures_K[node] -
-            archetype.weather_data.cooling_set_point_K
-        )
-        for (node, abstract_node) in free_nodes
+        (temperatures_K[node] - archetype.weather_data.cooling_set_point_K) for
+        (node, abstract_node) in free_nodes
     )
 
     # Calculate the final heating and cooling demands.
-    heating_demand_kW = timedata_operation(
-        max,
-        archetype.weather_data.preliminary_heating_demand_W + heating_correction_W,
-        0.0
-    ) / 1e3
-    cooling_demand_kW = timedata_operation(
-        max,
-        archetype.weather_data.preliminary_cooling_demand_W + cooling_correction_W,
-        0.0
-    ) / 1e3
-    return heating_demand_kW,
-    cooling_demand_kW,
-    heating_correction_W,
-    cooling_correction_W
+    heating_demand_kW =
+        timedata_operation(
+            max,
+            archetype.weather_data.preliminary_heating_demand_W + heating_correction_W,
+            0.0,
+        ) / 1e3
+    cooling_demand_kW =
+        timedata_operation(
+            max,
+            archetype.weather_data.preliminary_cooling_demand_W + cooling_correction_W,
+            0.0,
+        ) / 1e3
+    return heating_demand_kW, cooling_demand_kW, heating_correction_W, cooling_correction_W
 end
 
 
@@ -363,39 +356,36 @@ function solve_dhw_demand(
     archetype::ArchetypeBuilding,
     dhw_node_data::AbstractNode,
     temperatures_K::Dict{Object,T} where {T<:SpineDataType},
-    hc_ratio::SpineDataType
+    hc_ratio::SpineDataType,
 )
     # Fetch the abstract nodes and omit the dhw node.
     abstract_nodes = copy(archetype.abstract_nodes)
     pop!(abstract_nodes, dhw_node_data.building_node)
 
     # Calculate the DHW demand for heating and cooling seasons separately.
-    dhw_demand_heating_kW = (
-        -dhw_node_data.external_load_W +
-        dhw_node_data.self_discharge_coefficient_W_K *
-        dhw_node_data.heating_set_point_K + sum(
-            get(dhw_node_data.heat_transfer_coefficients_W_K, node, 0.0) * (
-                dhw_node_data.heating_set_point_K -
-                temperatures_K[node]
+    dhw_demand_heating_kW =
+        (
+            -dhw_node_data.external_load_W +
+            dhw_node_data.self_discharge_coefficient_W_K *
+            dhw_node_data.heating_set_point_K +
+            sum(
+                get(dhw_node_data.heat_transfer_coefficients_W_K, node, 0.0) *
+                (dhw_node_data.heating_set_point_K - temperatures_K[node]) for
+                (node, node_data) in abstract_nodes
             )
-            for (node, node_data) in abstract_nodes
-        )
-    ) / 1e3
-    dhw_demand_cooling_kW = (
-        -dhw_node_data.external_load_W +
-        dhw_node_data.self_discharge_coefficient_W_K *
-        dhw_node_data.cooling_set_point_K + sum(
-            get(dhw_node_data.heat_transfer_coefficients_W_K, node, 0.0) * (
-                dhw_node_data.cooling_set_point_K -
-                temperatures_K[node]
+        ) / 1e3
+    dhw_demand_cooling_kW =
+        (
+            -dhw_node_data.external_load_W +
+            dhw_node_data.self_discharge_coefficient_W_K *
+            dhw_node_data.cooling_set_point_K +
+            sum(
+                get(dhw_node_data.heat_transfer_coefficients_W_K, node, 0.0) *
+                (dhw_node_data.cooling_set_point_K - temperatures_K[node]) for
+                (node, node_data) in abstract_nodes
             )
-            for (node, node_data) in abstract_nodes
-        )
-    ) / 1e3
+        ) / 1e3
 
     # Calculate and return the final estimated DHW demand.
-    return (
-        dhw_demand_heating_kW * hc_ratio +
-        dhw_demand_cooling_kW * (1 - hc_ratio)
-    )
+    return (dhw_demand_heating_kW * hc_ratio + dhw_demand_cooling_kW * (1 - hc_ratio))
 end

@@ -40,9 +40,8 @@ function create_abstract_node_network(
             building_node_network,
             weather,
             node;
-            mod=mod
-        ) for
-        node in keys(building_node_network)
+            mod=mod,
+        ) for node in keys(building_node_network)
     )::AbstractNodeNetwork
 end
 
@@ -141,14 +140,12 @@ function process_abstract_node(
     heat_transfer_coefficients_W_K = mergewith(
         +,
         Dict( # First, heat transfer to interior air.
-            n => node_data.heat_transfer_coefficient_structures_interior_W_K
-            for (n, n_data) in building_node_network
-            if n_data.is_interior_node
+            n => node_data.heat_transfer_coefficient_structures_interior_W_K for
+            (n, n_data) in building_node_network if n_data.is_interior_node
         ),
         Dict( # Force symmetry to the interior air heat transfer.
-            n => n_data.heat_transfer_coefficient_structures_interior_W_K
-            for (n, n_data) in building_node_network
-            if node_data.is_interior_node
+            n => n_data.heat_transfer_coefficient_structures_interior_W_K for
+            (n, n_data) in building_node_network if node_data.is_interior_node
         ),
         node_data.heat_transfer_coefficients_base_W_K, # User-defined heat transfers
         node_data.heat_transfer_coefficients_gfa_scaled_W_K, # User-defined heat transfers
@@ -157,7 +154,7 @@ function process_abstract_node(
                 get(n_data.heat_transfer_coefficients_base_W_K, node, 0.0) +
                 get(n_data.heat_transfer_coefficients_gfa_scaled_W_K, node, 0.0)
             ) for (n, n_data) in building_node_network
-        )
+        ),
     )
     # And filter out zero heat transfer coefficients.
     filter!(pair -> pair[2] != 0, heat_transfer_coefficients_W_K)
@@ -169,7 +166,7 @@ function process_abstract_node(
         envelope,
         weather,
         node_data.is_interior_node;
-        mod=mod
+        mod=mod,
     )
     solar_heat_gains_structures_W = calculate_radiative_solar_gains(
         archetype,
@@ -177,7 +174,7 @@ function process_abstract_node(
         scope,
         envelope,
         weather;
-        mod=mod
+        mod=mod,
     )
     solar_heat_gains_envelope_W = calculate_total_envelope_solar_gains(
         archetype,
@@ -185,14 +182,14 @@ function process_abstract_node(
         scope,
         envelope,
         weather;
-        mod=mod
+        mod=mod,
     )
     radiative_envelope_sky_losses_W = calculate_total_envelope_radiative_sky_losses(
         archetype,
         node,
         scope,
         envelope;
-        mod=mod
+        mod=mod,
     )
 
     # External load accounting for heat transfer with ambient conditions.
@@ -209,8 +206,7 @@ function process_abstract_node(
         node_data.internal_heat_gains_structures_W +
         solar_heat_gains_air_W +
         solar_heat_gains_structures_W +
-        solar_heat_gains_envelope_W -
-        radiative_envelope_sky_losses_W -
+        solar_heat_gains_envelope_W - radiative_envelope_sky_losses_W -
         node_data.domestic_hot_water_demand_W
 
     # Return the properties of interest in the correct order for `AbstractNode`.
@@ -223,7 +219,7 @@ function process_abstract_node(
     heat_transfer_coefficients_W_K,
     external_load_W,
     node_data.is_interior_node,
-    mod.domestic_hot_water_demand_weight(building_node=node) > 0
+    node_data.domestic_hot_water_demand_W != 0.0
 end
 
 
@@ -275,11 +271,8 @@ function calculate_window_solar_gains(
     scope.total_normal_solar_energy_transmittance *
     envelope.window.surface_area_m2 *
     sum(
-        mod.window_area_distribution(
-            building_archetype=archetype;
-            direction=dir
-        ) * weather.total_effective_solar_irradiation_W_m2[dir]
-        for dir in solar_directions
+        mod.window_area_distribution(building_archetype=archetype; direction=dir) *
+        weather.total_effective_solar_irradiation_W_m2[dir] for dir in solar_directions
     )
 end
 
@@ -455,15 +448,8 @@ function calculate_convective_solar_gains(
     mod::Module=@__MODULE__
 )
     is_interior_node ?
-    calculate_window_solar_gains(
-        archetype,
-        scope,
-        envelope,
-        weather;
-        mod=mod
-    ) *
-    mod.solar_heat_gain_convective_fraction(building_archetype=archetype) :
-    0.0
+    calculate_window_solar_gains(archetype, scope, envelope, weather; mod=mod) *
+    mod.solar_heat_gain_convective_fraction(building_archetype=archetype) : 0.0
 end
 
 
@@ -508,19 +494,13 @@ function calculate_radiative_solar_gains(
     weather::WeatherData;
     mod::Module=@__MODULE__
 )
-    calculate_window_solar_gains(
-        archetype,
-        scope,
-        envelope,
-        weather;
-        mod=mod
-    ) *
+    calculate_window_solar_gains(archetype, scope, envelope, weather; mod=mod) *
     (1 - mod.solar_heat_gain_convective_fraction(building_archetype=archetype)) *
     sum(
         mod.structure_type_weight(building_node=node, structure_type=st) *
         getfield(envelope, st.name).surface_area_m2 / envelope.total_structure_area_m2 for
         st in mod.building_node__structure_type(building_node=node);
-        init=0
+        init=0,
     )
 end
 
@@ -553,14 +533,13 @@ function calculate_total_envelope_solar_gains(
     weather::WeatherData;
     mod::Module=@__MODULE__
 )
-    envelope_solar_gains_W = calculate_envelope_solar_gains(
-        archetype, scope, envelope, weather; mod=mod
-    )
+    envelope_solar_gains_W =
+        calculate_envelope_solar_gains(archetype, scope, envelope, weather; mod=mod)
     sum(
         mod.structure_type_weight(building_node=node, structure_type=st) *
         get(envelope_solar_gains_W, st, 0.0) for
         st in mod.building_node__structure_type(building_node=node);
-        init=0.0
+        init=0.0,
     )
 end
 
@@ -592,13 +571,12 @@ function calculate_total_envelope_radiative_sky_losses(
     envelope::EnvelopeData;
     mod::Module=@__MODULE__
 )
-    envelope_radiative_sky_losses_W = calculate_envelope_radiative_sky_losses(
-        archetype, scope, envelope; mod=mod
-    )
+    envelope_radiative_sky_losses_W =
+        calculate_envelope_radiative_sky_losses(archetype, scope, envelope; mod=mod)
     sum(
         mod.structure_type_weight(building_node=node, structure_type=st) *
         get(envelope_radiative_sky_losses_W, st, 0.0) for
         st in mod.building_node__structure_type(building_node=node);
-        init=0.0
+        init=0.0,
     )
 end

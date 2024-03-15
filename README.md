@@ -40,7 +40,7 @@ as well as the lumped-capacitance thermal models.
 6. `src/ArBuMo.jl`, the main Julia module file.
 7. `src/ArBuWe/` contains the Python sub-module for automatic weather data processing.
 8. `data/` contains data related to the automatic weather data processing.
-9. `examples/` contains example definitions for `building_fabrics`, `building_systems`, and `building_weather`.
+9. `examples/` contains example definitions for `building_fabrics`, `building_systems`, and obsolete `building_weather`.
 10. `figs/` contains automatically output diagnostic figures about the automatic weather data aggregation. 
 
 
@@ -89,7 +89,7 @@ with the following rough steps:
 
 1. Create a Spine Datastore with building stock data processed by e.g. [FinnishBuildingStockData.jl](https://github.com/vttresearch/FinnishBuildingStockData).
 2. Import `archetype_definitions.json` on top of the processed building stock data.
-3. Define the desired `building_archetype` objects, and connect them to the relevant `building_fabrics`, `building_loads`, `building_scope`, and `building_system` objects. *(`building_weather` is optional, and will be automatically generated if missing.)*
+3. Define the desired `building_archetype` objects, and connect them to the relevant `building_fabrics`, `building_loads`, `building_scope`, and `building_system` objects.
 4. Use the `process_archetype_buildings.json` tool to process the data and definitions into the desired energy system model input.
 
 In case you need to familiarize yourself with the inner workings of this module,

@@ -35,8 +35,7 @@ function process_building_loads(
     # Calculate loads
     dhw_demand = calculate_total_dhw_demand(loads, scope; mod=mod)
     internal_gains = calculate_total_internal_heat_loads(loads, scope; mod=mod)
-    return dhw_demand,
-    internal_gains
+    return dhw_demand, internal_gains
 end
 
 

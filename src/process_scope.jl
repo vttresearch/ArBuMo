@@ -31,7 +31,7 @@ function process_building_stock_scope(scope::Object; mod::Module=@__MODULE__)
         building_type=mod.building_scope__building_type(building_scope=scope),
         location_id=mod.building_scope__location_id(building_scope=scope),
         heat_source=mod.building_scope__heat_source(building_scope=scope);
-        _compact=false
+        _compact=false,
     )
 
     # Find the relevant `building_period` weights as limited by `scope_period_start_year` and `scope_period_end_year`
@@ -62,7 +62,7 @@ function process_building_stock_scope(scope::Object; mod::Module=@__MODULE__)
         scope,
         relevant_building_stock_statistics,
         building_period_weights;
-        mod=mod
+        mod=mod,
     )
 
     # Calculate the aggregated weights for ventilation/infiltration and weather data processing.
@@ -239,8 +239,7 @@ using [`calculate_gross_floor_area_weights`](@ref).
 function aggregate_gfa_weights(gross_floor_area_weights::Dict{NTuple{5,Object},Float64})
     # Aggregate the GFA-weights to match the dimensions of the ventilation and fenestration (and structural) data.
     aggregated_gfa_weights = Dict{NTuple{3,Object},Float64}(
-        (bt, bp, lid) => 0.0
-        for (bs, bt, bp, lid, hs) in keys(gross_floor_area_weights)
+        (bt, bp, lid) => 0.0 for (bs, bt, bp, lid, hs) in keys(gross_floor_area_weights)
     )
     for ((bs, bt, bp, lid, hs), weight) in gross_floor_area_weights
         aggregated_gfa_weights[(bt, bp, lid)] += weight
@@ -253,10 +252,8 @@ function aggregate_gfa_weights(gross_floor_area_weights::Dict{NTuple{5,Object},F
     end
 
     # Aggregate the GFA-weights for potential weather data processing.
-    location_id_gfa_weights = Dict{Object,Float64}(
-        lid => 0.0
-        for (bt, bp, lid) in keys(aggregated_gfa_weights)
-    )
+    location_id_gfa_weights =
+        Dict{Object,Float64}(lid => 0.0 for (bt, bp, lid) in keys(aggregated_gfa_weights))
     for ((bt, bp, lid), weight) in aggregated_gfa_weights
         location_id_gfa_weights[lid] += weight
     end
@@ -367,8 +364,7 @@ function process_structure_scope(
                     mod.linear_thermal_bridges_W_mK,
                     mod.total_U_value_W_m2K,
                 ]
-            ]...
-        )
-        for st in mod.structure_type()
+            ]...,
+        ) for st in mod.structure_type()
     )
 end
