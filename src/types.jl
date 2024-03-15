@@ -117,13 +117,13 @@ struct ScopeData <: BuildingDataType
         structure_data = process_structure_scope(aggregated_gfa_weights; mod=mod)
         shape_path = string(
             mod.shapefile_path(
-                building_stock=only(
+                building_stock=first(
                     mod.building_scope__building_stock(building_scope=scope),
                 ),
             ),
         )
         raster_path = mod.raster_weight_path(
-            building_stock=only(
+            building_stock=first(
                 mod.building_scope__building_stock(building_scope=scope),
             ),
         )

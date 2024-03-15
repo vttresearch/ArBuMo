@@ -44,7 +44,7 @@ else
     # Run input data tests
     run_input_data_tests(m)
 
-    # Process ScopeData and WeatherData, and create the ArchetypeBuildings
+    # Process ScopeData and create the ArchetypeBuildings
     scope_data_dictionary, archetype_dictionary = archetype_building_processing(
         m;
         save_layouts=save_layouts,
