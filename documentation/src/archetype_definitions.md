@@ -343,16 +343,6 @@ Default value: `0.0`
 
 Value list: `nothing`
 
-### `domestic_hot_water_demand_weight`
-
->Weight for how much of the domestic hot water demand is allocated for this node.
-
-Object class: `building_node`
-
-Default value: `0.0`
-
-Value list: `nothing`
-
 ### `effective_thermal_mass_base_J_K`
 
 >Define the base component of total effective thermal mass of the node by hand [J/K].

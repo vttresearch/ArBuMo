@@ -113,8 +113,8 @@
         [
             "building_node",
             "DHWT1000",
-            "domestic_hot_water_demand_weight",
-            1.0,
+            "is_domestic_hot_water_node",
+            true,
             "Base"
         ],
         [

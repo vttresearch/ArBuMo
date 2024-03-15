@@ -230,12 +230,11 @@ function process_building_node(
         )
 
     # Fetch the DHW demand for the node.
-    if mod.domestic_hot_water_demand_weight(building_node=node) > 0
+    if mod.is_domestic_hot_water_node(building_node=node)
         domestic_hot_water_demand_W =
-            loads.domestic_hot_water_demand_W *
-            mod.domestic_hot_water_demand_weight(building_node=node)
+            loads.domestic_hot_water_demand_W
     else
-        domestic_hot_water_demand_W = 0
+        domestic_hot_water_demand_W = 0.0
     end
 
     # Calculate the internal heat gains for the node, first for internal air and then structures.

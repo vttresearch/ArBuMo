@@ -473,13 +473,6 @@
         ],
         [
             "building_node",
-            "domestic_hot_water_demand_weight",
-            0.0,
-            null,
-            "Weight for how much of the domestic hot water demand is allocated for this node."
-        ],
-        [
-            "building_node",
             "effective_thermal_mass_base_J_K",
             0.0,
             null,
@@ -498,6 +491,13 @@
             null,
             null,
             "Heating set point for the node [K]."
+        ],
+        [
+            "building_node",
+            "is_domestic_hot_water_node",
+            false,
+            "Boolean",
+            "A flag indicating whether this node is the primary domestic hot water node."
         ],
         [
             "building_node",

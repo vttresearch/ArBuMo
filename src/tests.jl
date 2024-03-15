@@ -43,7 +43,7 @@ function run_parameter_tests(mod::Module=@__MODULE__; limit::Real=Inf)
         mod.domestic_hot_water_demand_gfa_scaling_W_m2 => (type=SpineDataType,),
         mod.internal_heat_loads_base_W => (type=SpineDataType,),
         mod.internal_heat_loads_gfa_scaling_W_m2 => (type=SpineDataType,),
-        mod.domestic_hot_water_demand_weight => (type=Real, min=0, max=1),
+        mod.is_domestic_hot_water_node => (type=Bool,),
         mod.effective_thermal_mass_base_J_K => (type=Real,),
         mod.effective_thermal_mass_gfa_scaling_J_m2K => (type=Real,),
         mod.is_interior_node => (type=Bool,),
