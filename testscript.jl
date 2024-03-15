@@ -155,7 +155,7 @@ end
         mod=m,
         save_layouts=false,
         realization=realization,
-    ) for archetype in m.building_archetype(:DH1_LBM)
+    ) for archetype in m.building_archetype()
 )
 
 

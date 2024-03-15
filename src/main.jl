@@ -322,17 +322,15 @@ function add_results!(
                             building_archetype=arch,
                             building_process=p,
                         ) for
-                        p in mod.results__building_archetype__building_process(
-                            building_archetype=arch,
-                        ) if p in mod.building_process__direction__building_node(
+                        (arch, p) in mod.results__building_archetype__building_process() if
+                        p in mod.building_process__direction__building_node(
                             direction=mod.direction(:from_node),
                             building_node=sys_link_n,
                         )
                     ),
                 ),
-            ) for (arch, sys_link_n) in mod.building_archetype__system_link_node(
-                building_archetype=collect(keys(results_dictionary));
-                _compact=false,
+            ) for sys_link_n in mod.building_archetype__system_link_node(
+                building_archetype=collect(keys(results_dictionary))
             )
         ),
     )
