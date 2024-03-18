@@ -379,6 +379,7 @@ struct BuildingNodeData <: BuildingDataType
     internal_heat_gains_air_W::SpineDataType
     internal_heat_gains_structures_W::SpineDataType
     is_interior_node::Bool
+    is_dhw_node::Bool
     """
         BuildingNodeData(
             archetype::Object,

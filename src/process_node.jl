@@ -100,8 +100,9 @@ function process_building_node(
     loads::LoadsData;
     mod::Module=@__MODULE__
 )
-    # Check if node is primary interior node
+    # Check if node is primary interior node or dhw node
     is_interior_node = mod.is_interior_node(building_node=node)
+    is_dhw_node = mod.is_domestic_hot_water_node(building_node=node)
 
     # Fetch user defined thermal mass components of the node.
     thermal_mass_base_J_K = mod.effective_thermal_mass_base_J_K(building_node=node)
@@ -230,7 +231,7 @@ function process_building_node(
         )
 
     # Fetch the DHW demand for the node.
-    if mod.is_domestic_hot_water_node(building_node=node)
+    if is_dhw_node
         domestic_hot_water_demand_W =
             loads.domestic_hot_water_demand_W
     else
@@ -270,7 +271,8 @@ function process_building_node(
     domestic_hot_water_demand_W,
     internal_heat_gains_air_W,
     internal_heat_gains_structures_W,
-    is_interior_node
+    is_interior_node,
+    is_dhw_node
 end
 
 

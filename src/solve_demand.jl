@@ -104,7 +104,7 @@ function solve_heating_demand(
     indices, delta_t = determine_temporal_structure(archetype; realization=realization)
     zero_ts = TimeSeries(indices, zeros(size(indices)))
 
-    # Estimated node temperatures based on heating and cooling demand ratio.
+    # Estimated set node temperatures based on heating and cooling demand ratio.
     hc_ratio = (
         archetype.weather_data.preliminary_heating_demand_W / (
             archetype.weather_data.preliminary_heating_demand_W +

@@ -226,10 +226,10 @@ function create_building_weather(
     zero_ts = TimeSeries(hourly_inds, zeros(size(hourly_inds)))
     heating_set_point_K =
         zero_ts +
-        mod.indoor_air_heating_set_point_override_K(building_archetype=archetype)
+        air_node_data.heating_set_point_K
     cooling_set_point_K =
         zero_ts +
-        mod.indoor_air_cooling_set_point_override_K(building_archetype=archetype)
+        air_node_data.cooling_set_point_K
 
     # Calculate total internal heat gains including connected set point nodes.
     internal_heat_gains_heating_W =
