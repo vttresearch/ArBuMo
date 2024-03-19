@@ -104,26 +104,22 @@ function solve_heating_demand(
     indices, delta_t = determine_temporal_structure(archetype; realization=realization)
     zero_ts = TimeSeries(indices, zeros(size(indices)))
 
-    # Estimated set node temperatures based on heating and cooling demand ratio.
-    hc_ratio = (
-        archetype.weather_data.preliminary_heating_demand_W / (
-            archetype.weather_data.preliminary_heating_demand_W +
-            archetype.weather_data.preliminary_cooling_demand_W
-        )
-    )
-    replace!(x -> isnan(x) ? 0.5 : x, hc_ratio.values)
-
-    temperatures_K = Dict(
-        node =>
-            zero_ts +
-            hc_ratio * node_data.heating_set_point_K +
-            (1 - hc_ratio) * node_data.cooling_set_point_K for
-        (node, node_data) in set_nodes
-    )
-
     # Calculate the free node temperatures based on set points.
-    solve_free_node_temperature_dynamics!(
-        temperatures_K,
+    heated_temperatures_K = solve_free_node_temperature_dynamics!(
+        Dict(
+            node => zero_ts + node_data.heating_set_point_K for
+            (node, node_data) in set_nodes
+        ),
+        free_nodes,
+        set_nodes,
+        indices,
+        delta_t,
+    )
+    cooled_temperatures_K = solve_free_node_temperature_dynamics!(
+        Dict(
+            node => zero_ts + node_data.cooling_set_point_K for
+            (node, node_data) in set_nodes
+        ),
         free_nodes,
         set_nodes,
         indices,
@@ -131,12 +127,18 @@ function solve_heating_demand(
     )
 
     # Calculate the heating demand for the indoor air node
-    heating_demand_kW, cooling_demand_kW, heating_correction_W, cooling_correction_W =
-        calculate_final_heating_demand(archetype, temperatures_K, air_node, free_nodes)
+    heating_demand_kW, spare_cooling_demand_kW, heating_correction_W, spare_cooling_correction_W =
+        calculate_final_heating_demand(archetype, heated_temperatures_K, air_node, free_nodes)
+    spare_heating_demand_kW, cooling_demand_kW, spare_heating_correction_W, cooling_correction_W =
+        calculate_final_heating_demand(archetype, cooled_temperatures_K, air_node, free_nodes)
 
     # Estimated node temperatures based on heating and cooling demand ratio.
     hc_ratio = heating_demand_kW / (heating_demand_kW + cooling_demand_kW)
     replace!(x -> isnan(x) ? 0.5 : x, hc_ratio.values)
+    temperatures_K = Dict(
+        node => hc_ratio * heated_temperatures_K[node] + (1 - hc_ratio) * cooled_temperatures_K[node] for
+        node in keys(heated_temperatures_K)
+    )
 
     # Solve DHW node demand.
     dhw_demand_kW = solve_dhw_demand(archetype, dhw_node_data, temperatures_K, hc_ratio) # Scaling to kWh internally within the function!
@@ -289,6 +291,7 @@ function solve_free_node_temperature_dynamics!(
         # Add the calculated temperatures to the temperature dictionary
         temperatures_K[node] = TimeSeries(indices, temps_K, false, false)
     end
+    return temperatures_K
 end
 
 
