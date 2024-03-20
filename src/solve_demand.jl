@@ -363,9 +363,23 @@ function initialize_temperatures(
 )
     # Fetch the allowed temperature limits.
     min_temperatures =
-        float.([!isnothing(n.heating_set_point_K) ? n.heating_set_point_K : 200.0 for (k, n) in archetype.abstract_nodes])
+        float.(
+            [
+            !isnothing(n.heating_set_point_K) ?
+            n.heating_set_point_K :
+            200.0
+            for (k, n) in archetype.abstract_nodes
+        ]
+        )
     max_temperatures =
-        float.([!isnothing(n.cooling_set_point_K) ? n.cooling_set_point_K : 400.0 for (k, n) in archetype.abstract_nodes])
+        float.(
+            [
+            !isnothing(n.cooling_set_point_K) ?
+            n.cooling_set_point_K :
+            400.0
+            for (k, n) in archetype.abstract_nodes
+        ]
+        )
 
     # Form the initial temperature vector.
     # Based on minimum temperatures unless otherwise defined.
