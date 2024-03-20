@@ -16,30 +16,21 @@ NOTE! The `mod` keyword changes from which Module data is accessed from,
 Contains the following fields:
  - `building_archetype::ObjectClass`: Stores [`ArchetypeBuilding`](@ref) information and definitions.
  - `building_scope::ObjectClass`: Stores [`ScopeData`](@ref) information and definitions.
- - `building_weather::ObjectClass`: Stores [`WeatherData`](@ref) information and definitions.
  - `building_archetype__building_scope::RelationshipClass`: Links [`ArchetypeBuilding`](@ref) to its corresponding [`ScopeData`](@ref).
- - `building_archetype__building_weather::RelationshipClass`: Links [`ArchetypeBuilding`](@ref) to its corresponding [`WeatherData`](@ref).
 """
 struct GenericInput <: ModelInput
     building_archetype::ObjectClass
     building_scope::ObjectClass
-    building_weather::ObjectClass
     building_archetype__building_scope::RelationshipClass
-    building_archetype__building_weather::RelationshipClass
     function GenericInput(; mod=@__MODULE__)
         building_archetype = deepcopy(mod.building_archetype)
         building_scope = deepcopy(mod.building_scope)
-        building_weather = deepcopy(mod.building_weather)
         building_archetype__building_scope =
             deepcopy(mod.building_archetype__building_scope)
-        building_archetype__building_weather =
-            deepcopy(mod.building_archetype__building_weather)
         new(
             building_archetype,
             building_scope,
-            building_weather,
             building_archetype__building_scope,
-            building_archetype__building_weather,
         )
     end
 end
@@ -87,19 +78,6 @@ function add_archetype_to_input!(generic::GenericInput, result::ArchetypeBuildin
     # Fetch the contained `ArchetypeBuilding`
     archetype = result.archetype
 
-    # Add effective ground temperature to weather.
-    add_object_parameter_values!(
-        generic.building_weather,
-        Dict(
-            archetype.weather => Dict(
-                :ground_temperature_K =>
-                    parameter_value(archetype.weather_data.ground_temperature_K),
-            ),
-        ),
-    )
-    generic.building_weather.parameter_defaults[:ground_temperature_K] =
-        parameter_value(nothing)
-
     # Add scope data.
     add_object_parameter_values!(
         generic.building_scope,
@@ -113,8 +91,8 @@ function add_archetype_to_input!(generic::GenericInput, result::ArchetypeBuildin
         :building_nodes,
         :building_processes,
         :loads_data,
-        :abstract_nodes,
-        :abstract_processes,
+        :weather_data,
+        :abstract_nodes
     ]
 
     # Loop over archetype fields of interest and add data
