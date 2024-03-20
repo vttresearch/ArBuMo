@@ -126,6 +126,12 @@ function process_abstract_node(
             node_data.thermal_mass_structures_J_K
         ) / 3600
 
+    # HRU bypass estimated using preliminary heating and cooling demands:
+    hc_ratio = weather.preliminary_heating_demand_W / (
+        weather.preliminary_heating_demand_W + weather.preliminary_cooling_demand_W
+    )
+    replace!(x -> isnan(x) ? 0.5 : x, values(hc_ratio))
+
     # Total self-discharge coefficient from the node, accounting for ambient heat transfer.
     self_discharge_coefficient_W_K =
         node_data.self_discharge_base_W_K +
@@ -133,7 +139,8 @@ function process_abstract_node(
         node_data.heat_transfer_coefficient_structures_exterior_W_K +
         node_data.heat_transfer_coefficient_structures_ground_W_K +
         node_data.heat_transfer_coefficient_windows_W_K +
-        node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K +
+        hc_ratio * node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K +
+        (1 - hc_ratio) * node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K_HRU_bypass +
         node_data.heat_transfer_coefficient_thermal_bridges_W_K
 
     # Heat transfer coefficients from this node to connected nodes.
@@ -206,7 +213,8 @@ function process_abstract_node(
         (
             node_data.heat_transfer_coefficient_structures_exterior_W_K +
             node_data.heat_transfer_coefficient_windows_W_K +
-            node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K +
+            hc_ratio * node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K +
+            (1 - hc_ratio) * node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K_HRU_bypass +
             node_data.heat_transfer_coefficient_thermal_bridges_W_K
         ) * weather.ambient_temperature_K +
         node_data.heat_transfer_coefficient_structures_ground_W_K *

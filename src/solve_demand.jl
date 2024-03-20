@@ -459,10 +459,6 @@ function solve_heating_demand_loop(
         repeat([zeros(len)], length(indices))
     )
     hvac_demand = repeat([zeros(len)], length(indices))
-    inverse_hvac_matrices = Dict{Vector{Bool},Matrix{Float64}}(
-        fill(false, len) => zeros(len, len)
-    )
-    sizehint!(inverse_hvac_matrices, 2^2)
 
     # Loop over the indices, and solve the dynamics/HVAC demand.
     for (i, t) in enumerate(indices)
@@ -526,6 +522,8 @@ function solve_heating_demand_loop(
             hvac_demand[i] = hvac
         end
     end
+    # Remove initial temperature vector
+    popfirst!(temperatures)
     return temperatures, hvac_demand
 end
 
