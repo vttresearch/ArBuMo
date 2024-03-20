@@ -550,8 +550,10 @@ function calculate_total_envelope_solar_gains(
     weather::WeatherData;
     mod::Module=@__MODULE__
 )
+    # First, calculate the envelope solar gains per structure.
     envelope_solar_gains_W =
         calculate_envelope_solar_gains(archetype, scope, envelope, weather; mod=mod)
+    # Next, sum up the gains for the relevant structures.
     sum(
         mod.structure_type_weight(building_node=node, structure_type=st) *
         get(envelope_solar_gains_W, st, 0.0) for
@@ -588,8 +590,10 @@ function calculate_total_envelope_radiative_sky_losses(
     envelope::EnvelopeData;
     mod::Module=@__MODULE__
 )
+    # First, calculate the radiative sky losses per structure.
     envelope_radiative_sky_losses_W =
         calculate_envelope_radiative_sky_losses(archetype, scope, envelope; mod=mod)
+    # Sum over the losses of the relevant structures.
     sum(
         mod.structure_type_weight(building_node=node, structure_type=st) *
         get(envelope_radiative_sky_losses_W, st, 0.0) for
