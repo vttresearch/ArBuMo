@@ -536,7 +536,7 @@ function solve_heating_demand_loop(
             hvac_demand[i] = hvac
         end
     end
-    # Remove initial temperature vector
+    # Remove initial temperature vector and return the rest
     popfirst!(temperatures)
     return temperatures, hvac_demand
 end

@@ -124,7 +124,7 @@ function process_abstract_node(
             node_data.thermal_mass_gfa_scaled_J_K +
             node_data.thermal_mass_interior_air_and_furniture_J_K +
             node_data.thermal_mass_structures_J_K
-        ) / 3600
+        ) / 3600 + 1e-9
 
     # HRU bypass estimated using preliminary heating and cooling demands:
     hc_ratio = weather.preliminary_heating_demand_W / (
