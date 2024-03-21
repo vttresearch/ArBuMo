@@ -124,7 +124,13 @@ function process_abstract_node(
             node_data.thermal_mass_gfa_scaled_J_K +
             node_data.thermal_mass_interior_air_and_furniture_J_K +
             node_data.thermal_mass_structures_J_K
-        ) / 3600
+        ) / 3600 + 1e-9
+
+    # HRU bypass estimated using preliminary heating and cooling demands:
+    hc_ratio = weather.preliminary_heating_demand_W / (
+        weather.preliminary_heating_demand_W + weather.preliminary_cooling_demand_W
+    )
+    replace!(x -> isnan(x) ? 0.5 : x, values(hc_ratio))
 
     # Total self-discharge coefficient from the node, accounting for ambient heat transfer.
     self_discharge_coefficient_W_K =
@@ -133,7 +139,8 @@ function process_abstract_node(
         node_data.heat_transfer_coefficient_structures_exterior_W_K +
         node_data.heat_transfer_coefficient_structures_ground_W_K +
         node_data.heat_transfer_coefficient_windows_W_K +
-        node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K +
+        hc_ratio * node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K +
+        (1 - hc_ratio) * node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K_HRU_bypass +
         node_data.heat_transfer_coefficient_thermal_bridges_W_K
 
     # Heat transfer coefficients from this node to connected nodes.
@@ -206,7 +213,8 @@ function process_abstract_node(
         (
             node_data.heat_transfer_coefficient_structures_exterior_W_K +
             node_data.heat_transfer_coefficient_windows_W_K +
-            node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K +
+            hc_ratio * node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K +
+            (1 - hc_ratio) * node_data.heat_transfer_coefficient_ventilation_and_infiltration_W_K_HRU_bypass +
             node_data.heat_transfer_coefficient_thermal_bridges_W_K
         ) * weather.ambient_temperature_K +
         node_data.heat_transfer_coefficient_structures_ground_W_K *
@@ -542,8 +550,10 @@ function calculate_total_envelope_solar_gains(
     weather::WeatherData;
     mod::Module=@__MODULE__
 )
+    # First, calculate the envelope solar gains per structure.
     envelope_solar_gains_W =
         calculate_envelope_solar_gains(archetype, scope, envelope, weather; mod=mod)
+    # Next, sum up the gains for the relevant structures.
     sum(
         mod.structure_type_weight(building_node=node, structure_type=st) *
         get(envelope_solar_gains_W, st, 0.0) for
@@ -580,8 +590,10 @@ function calculate_total_envelope_radiative_sky_losses(
     envelope::EnvelopeData;
     mod::Module=@__MODULE__
 )
+    # First, calculate the radiative sky losses per structure.
     envelope_radiative_sky_losses_W =
         calculate_envelope_radiative_sky_losses(archetype, scope, envelope; mod=mod)
+    # Sum over the losses of the relevant structures.
     sum(
         mod.structure_type_weight(building_node=node, structure_type=st) *
         get(envelope_radiative_sky_losses_W, st, 0.0) for

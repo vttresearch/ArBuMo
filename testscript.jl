@@ -21,8 +21,8 @@ m = Module()
 # Provide the url for a datastore containing the required raw input data and the archetype building definitions.
 url = "sqlite:///C:\\_SPINEPROJECTS\\SpineOpt_PED_demo_fluid\\.spinetoolbox\\data_and_definitions.sqlite"
 
-# Output url
-#output_url = <ADD OUTPUT URL IF DESIRED>
+# Output url, in-memory db for testing.
+output_url = "sqlite://"
 
 @info "Opening database..."
 @time using_spinedb(url, m)
@@ -198,14 +198,14 @@ results__system_link_node = initialize_result_classes!(m)
 @info "Creating `BackboneInput`..."
 @time backbone = BackboneInput(archetype_results; mod=m)
 #write_to_url(output_url, backbone)
-
+=#
 
 ## Test creating generic input
 
 @info "Creating `GenericInput`..."
 @time generic = GenericInput(archetype_results; mod=m)
-#@time write_to_url(output_url, generic)
-=#
+@time write_to_url(output_url, generic)
+
 
 ## Plot diagnostics.
 

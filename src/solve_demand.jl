@@ -90,68 +90,86 @@ while the vector selection is essentially only the selected column in vector for
 function solve_heating_demand(
     archetype::ArchetypeBuilding;
     realization::Symbol=:realization,
+    free_dynamics::Bool=false,
+    initial_temperatures::Nothing=nothing
 )
     # Categorize nodes based on their role.
     (air_node, air_node_data) =
         only(filter(pair -> pair[2].is_interior_node, archetype.abstract_nodes))
-    (dhw_node, dhw_node_data) =
-        only(filter(pair -> pair[2].is_dhw, archetype.abstract_nodes))
-    set_nodes =
-        filter(pair -> !isnothing(pair[2].heating_set_point_K), archetype.abstract_nodes)
-    free_nodes = Dict(setdiff(archetype.abstract_nodes, set_nodes)...)
+    free_nodes =
+        filter(pair -> isnothing(pair[2].heating_set_point_K), archetype.abstract_nodes)
 
     # Determine the temporal structure
     indices, delta_t = determine_temporal_structure(archetype; realization=realization)
-    zero_ts = TimeSeries(indices, zeros(size(indices)))
 
-    # Estimated set node temperatures based on heating and cooling demand ratio.
-    hc_ratio = (
-        archetype.weather_data.preliminary_heating_demand_W / (
-            archetype.weather_data.preliminary_heating_demand_W +
-            archetype.weather_data.preliminary_cooling_demand_W
-        )
-    )
-    replace!(x -> isnan(x) ? 0.5 : x, hc_ratio.values)
+    # Initialize the external load and thermal mass vectors.
+    external_load_vector, thermal_mass_vector =
+        initialize_rhs(archetype, indices, delta_t; realization=realization)
 
-    temperatures_K = Dict(
-        node =>
-            zero_ts +
-            hc_ratio * node_data.heating_set_point_K +
-            (1 - hc_ratio) * node_data.cooling_set_point_K for
-        (node, node_data) in set_nodes
-    )
-
-    # Calculate the free node temperatures based on set points.
-    solve_free_node_temperature_dynamics!(
-        temperatures_K,
-        free_nodes,
-        set_nodes,
+    # Initialize the temperature vector and the temperature limit vectors.
+    init_temperatures, min_temperatures, max_temperatures = initialize_temperatures(
+        archetype,
         indices,
         delta_t,
+        external_load_vector,
+        thermal_mass_vector,
+        free_dynamics,
+        initial_temperatures,
+    )
+
+    # Solve the heating demand for the entire set of indices.
+    temperatures, hvac_demand = solve_heating_demand_loop(
+        archetype,
+        indices,
+        delta_t,
+        init_temperatures,
+        min_temperatures,
+        max_temperatures,
+        external_load_vector,
+        thermal_mass_vector,
+        free_dynamics,
+    )
+
+    # Rearrange the results into Dicts,
+    # and remove initial values from the temperature array.
+    nodes = keys(archetype.abstract_nodes)
+    temp_dict = Dict(
+        zip(
+            nodes,
+            [
+                TimeSeries(indices, getindex.(temperatures, i), false, false) for
+                (i, n) in enumerate(nodes)
+            ],
+        ),
+    )
+    heating_demand_dict_kW = Dict(
+        zip(
+            nodes,
+            [
+                TimeSeries(indices, max.(getindex.(hvac_demand, i), 0.0) ./ 1e3, false, false) for
+                (i, n) in enumerate(nodes)
+            ],
+        ),
+    )
+    cooling_demand_dict_kW = Dict(
+        zip(
+            nodes,
+            [
+                TimeSeries(indices, -min.(getindex.(hvac_demand, i), 0.0) ./ 1e3, false, false) for
+                (i, n) in enumerate(nodes)
+            ],
+        ),
     )
 
     # Calculate the heating demand for the indoor air node
     heating_demand_kW, cooling_demand_kW, heating_correction_W, cooling_correction_W =
-        calculate_final_heating_demand(archetype, temperatures_K, air_node, free_nodes)
+        calculate_final_heating_demand(archetype, temp_dict, air_node, free_nodes)
 
-    # Estimated node temperatures based on heating and cooling demand ratio.
-    hc_ratio = heating_demand_kW / (heating_demand_kW + cooling_demand_kW)
-    replace!(x -> isnan(x) ? 0.5 : x, hc_ratio.values)
-
-    # Solve DHW node demand.
-    dhw_demand_kW = solve_dhw_demand(archetype, dhw_node_data, temperatures_K, hc_ratio) # Scaling to kWh internally within the function!
-
-    # Initialize the heating and cooling demand result dictionaries.
-    heating_demand_dict_kW =
-        Dict(node => zero_ts for node in keys(archetype.abstract_nodes))
-    cooling_demand_dict_kW =
-        Dict(node => zero_ts for node in keys(archetype.abstract_nodes))
-    # Save the results of interest into the result dictionaries
+    # Replace indoor air node heating and cooling demands.
     heating_demand_dict_kW[air_node] = heating_demand_kW
-    heating_demand_dict_kW[dhw_node] = dhw_demand_kW
     cooling_demand_dict_kW[air_node] = cooling_demand_kW
 
-    return temperatures_K,
+    return temp_dict,
     heating_demand_dict_kW,
     cooling_demand_dict_kW,
     heating_correction_W,
@@ -213,84 +231,348 @@ end
 
 
 """
-    solve_free_node_temperature_dynamics!(
-        heating_temperatures_K::Dict{Object,SpineDataType},
-        cooling_temperatures_K::Dict{Object,SpineDataType},
-        free_nodes::Dict{Object,AbstractNode},
-        set_nodes::Dict{Object,AbstractNode},
-        indices::Vector{DateTime},
-        delta_t::Number
-    )
+    form_and_invert_dynamics_matrix(archetype::ArchetypeBuilding, delta_t::Int64)
 
-Solve the free node temperature dynamics, and append them to the temperature dicts.
+Forms and inverts the implicit Euler discretized dynamics matrix for the
+`AbstractNodeNetwork`.
 
-TODO: Docstring!
+TODO: Revise documentation!
+
+The implicit Euler discretized dynamics matrix `A` is formed as follows:
+```math
+\\bm{A}_{n,m} = \\begin{cases}
+\\frac{C_m}{\\Delta t} + \\rho_m + \\sum_{n' \\in N} H_{n,m}, \\qquad n = m, \\\\
+- H_{n,m}, \\qquad n \\neq m,
+\\end{cases}, \\quad \\text{where } n, m \\in N
+```
+where `A_n,m` is the element of the dynamic matrix `A` on row `n` and column `m`,
+`C_m` is the thermal mass of node `m`,
+`Δt` is the length of the discretized time step,
+`ρ_m` is the self-discharge coefficient of node `m`,
+`N` is the set of nodes included in the lumped-capacitance thermal model,
+and `H_{m,n}` is the heat transfer coefficient between nodes `n` and `m`.
 """
-function solve_free_node_temperature_dynamics!(
-    temperatures_K::Dict{Object,T} where {T<:SpineDataType},
-    free_nodes::Dict{Object,AbstractNode},
-    set_nodes::Dict{Object,AbstractNode},
-    indices::Vector{DateTime},
-    delta_t::Number,
+function form_and_invert_dynamics_matrix(
+    archetype::ArchetypeBuilding,
+    t::DateTime,
+    delta_t::Int64
 )
-    for (node, node_data) in free_nodes
-        # Account for set temperature node heat transfers
-        effective_self_discharge_W_K = (
-            node_data.self_discharge_coefficient_W_K + sum(
-                get(node_data.heat_transfer_coefficients_W_K, set_node, 0.0) for
-                (set_node, set_node_data) in set_nodes
-            )
-        )
-        effective_external_load_W = collect(
-            values(
-                node_data.external_load_W + sum(
-                    get(node_data.heat_transfer_coefficients_W_K, set_node, 0.0) *
-                    temperatures_K[set_node] for (set_node, set_node_data) in set_nodes
-                ),
-            ),
-        )
+    # Initialize the implicit Euler dynamics matrix.
+    len = length(archetype.abstract_nodes)
+    M = Matrix{Float64}(undef, len, len)
 
-        # Calculate the exponential coefficient for the dynamics
-        expcoeff = exp( # Luckily this is constant for free temperature nodes (structures), saving us time.
-            -effective_self_discharge_W_K / node_data.thermal_mass_Wh_K * delta_t,
-        )
-
-        # Initialize temperatures by looping the first 24 hours.
-        initial_temps_K = effective_external_load_W[1:24] ./ effective_self_discharge_W_K
-        for iter = 1:100
-            for i = 2:24
-                initial_temps_K[i] = (
-                    expcoeff * initial_temps_K[i-1] +
-                    effective_external_load_W[i-1] / effective_self_discharge_W_K *
-                    (1 - expcoeff)
-                )
-            end
-            if isapprox(first(initial_temps_K), last(initial_temps_K))
-                break
-            elseif iter == 100
-                @warn "Initial temperature failed to converge!"
+    # Loop over the matrix to fill in the values.
+    enum_nodes = enumerate(archetype.abstract_nodes)
+    for (i, (k1, n1)) in enum_nodes
+        for (j, (k2, n2)) in enum_nodes
+            if i == j
+                M[i, j] =
+                    n1.thermal_mass_Wh_K / delta_t +
+                    parameter_value(n1.self_discharge_coefficient_W_K)(t=t) +
+                    sum(values(n1.heat_transfer_coefficients_W_K); init=0.0)
             else
-                initial_temps_K[1] = last(initial_temps_K)
+                M[i, j] = -get(n1.heat_transfer_coefficients_W_K, k2, 0.0)
             end
         end
-
-        # Solve the rest of the temperatures using the initial temperature.
-        temps_K = zeros(1 + length(indices))
-        temps_K[1] = initial_temps_K[1]
-        for i in eachindex(temps_K)[2:end]
-            temps_K[i] = (
-                expcoeff * temps_K[i-1] +
-                effective_external_load_W[i-1] / effective_self_discharge_W_K *
-                (1 - expcoeff)
-            )
-        end
-        popfirst!(temps_K) # Remove initial temperature.
-
-        # Add the calculated temperatures to the temperature dictionary
-        temperatures_K[node] = TimeSeries(indices, temps_K, false, false)
     end
+
+    # Return the dynamics matrix and its inverse
+    return M, inv(M)
 end
 
+
+"""
+    initialize_rhs(
+        archetype::ArchetypeBuilding,
+        indices::Vector{Dates.DateTime},
+        delta_t::Int64;
+        realization::Symbol = :realization,
+    )
+
+Initialize the right-hand side of the linear equation system,
+meaning the impact of the `external_load_W` and previous temperatures.
+
+The `realization` keyword is used to indicate the true data from potentially
+stochastic input.
+
+See the [`solve_heating_demand`](@ref) function for the overall formulation.
+This function returns the right-hand side components separately
+```math
+\\hat{\\Phi} = \\hat{\\Phi'} + \\hat{\\frac{C}{\\Delta t} T_{t-\\Delta t}},
+```
+where `Φ'` is the component of external loads,
+and the rest is the component of the impact of previous temperatures.
+The components are useful for the [`solve_heating_demand_loop`](@ref) function.
+"""
+function initialize_rhs(
+    archetype::ArchetypeBuilding,
+    indices::Vector{Dates.DateTime},
+    delta_t::Int64;
+    realization::Symbol=:realization
+)
+    # Process the nodal `external_load_W`s into a nested vector for easy access.
+    external_load_vector = [
+        [
+            parameter_value(n.external_load_W)(scenario=realization, t=t) for
+            (k, n) in archetype.abstract_nodes
+        ] for (i, t) in enumerate(indices)
+    ]
+
+    # Calculate the thermal mass vector to account for previous temperatures.
+    thermal_mass_vector =
+        [n.thermal_mass_Wh_K / delta_t for (k, n) in archetype.abstract_nodes]
+
+    return external_load_vector, thermal_mass_vector
+end
+
+
+"""
+    initialize_temperatures(
+        archetype::ArchetypeBuilding,
+        indices::Vector{DateTime},
+        dynamics_matrix::Matrix{Float64},
+        inverted_dynamics_matrix::Matrix{Float64},
+        external_load_vector::Vector{Vector{Float64}},
+        thermal_mass_vector::Vector{Float64},
+        free_dynamics::Bool,
+        initial_temperatures::Union{Nothing,Dict{Object,Float64}},
+    )
+
+Initialize the temperature and temperature limit vectors for the heating/cooling
+demand calculations.
+
+Initial temperatures are solved by repeatedly solving the first 24 hours
+until the end-result no longer changes.
+The initialization is abandoned if no stable initial temperatures are found
+within a thousand 24-hour solves.
+In this case, the minimum permitted temperatures are used as the initial
+temperatures for each node, unless otherwise specified via `initial_temperatures`.
+Internally, uses the [`solve_heating_demand_loop`](@ref) function.
+
+See the [`solve_heating_demand`](@ref) function for the overall logic and
+formulation of the heating demand calculations.
+"""
+function initialize_temperatures(
+    archetype::ArchetypeBuilding,
+    indices::Vector{DateTime},
+    delta_t::Int64,
+    external_load_vector::Vector{Vector{Float64}},
+    thermal_mass_vector::Vector{Float64},
+    free_dynamics::Bool,
+    initial_temperatures::Union{Nothing,Dict{Object,Float64}},
+)
+    # Fetch the allowed temperature limits.
+    min_temperatures =
+        float.(
+            [
+            !isnothing(n.heating_set_point_K) ?
+            n.heating_set_point_K :
+            200.0
+            for (k, n) in archetype.abstract_nodes
+        ]
+        )
+    max_temperatures =
+        float.(
+            [
+            !isnothing(n.cooling_set_point_K) ?
+            n.cooling_set_point_K :
+            400.0
+            for (k, n) in archetype.abstract_nodes
+        ]
+        )
+
+    # Form the initial temperature vector.
+    # Based on minimum temperatures unless otherwise defined.
+    if !isnothing(initial_temperatures)
+        init_temperatures =
+            float.([
+                get(initial_temperatures, n, min_temperatures[i]) for
+                (i, n) in enumerate(keys(archetype.abstract_nodes))
+            ])
+        min_init_temperatures = deepcopy(init_temperatures)
+        max_init_temperatures = deepcopy(max_temperatures)
+        fixed_inds = findall(init_temperatures .!= min_temperatures)
+        max_init_temperatures[fixed_inds] = init_temperatures[fixed_inds]
+        free_dyn = false # If initial temperatures are given, dynamics aren't free.
+    else
+        init_temperatures = deepcopy(min_temperatures)
+        min_init_temperatures = deepcopy(min_temperatures)
+        max_init_temperatures = deepcopy(max_temperatures)
+        free_dyn = free_dynamics
+    end
+
+    # Solve the initial temperatures via repeatedly solving the first up-to 24 hours
+    # until the temperatures converge, starting from the permitted minimums.
+    for i in 1:1000
+        temps, hvac = solve_heating_demand_loop(
+            archetype,
+            indices[1:min(24, end)],
+            delta_t,
+            init_temperatures,
+            min_init_temperatures,
+            max_init_temperatures,
+            external_load_vector,
+            thermal_mass_vector,
+            free_dyn,
+        )
+        if isapprox(last(temps), init_temperatures)
+            return last(temps), min_temperatures, max_temperatures
+        end
+        init_temperatures = last(temps)
+    end
+    println("""
+            No stable initial temperatures found for $(archetype)!
+            Using minimum permitted temperatures instead.
+            """)
+    return deepcopy(min_temperatures), min_temperatures, max_temperatures
+end
+
+
+"""
+    solve_heating_demand_loop(
+        indices::Vector{DateTime},
+        dynamics_matrix::Matrix{Float64},
+        inverted_dynamics_matrix::Matrix{Float64},
+        temperatures::Vector{Vector{Float64}},
+        min_temperatures::Vector{Float64},
+        max_temperatures::Vector{Float64},
+        external_load_vector::Vector{Vector{Float64}},
+        thermal_mass_vector::Vector{Float64},
+        free_dynamics::Bool,
+        initial_temperatures::Vector{Float64}
+    )
+
+Solve the heating/cooling demand one timestep at a time over the given indices.
+
+Essentially, performs the following steps:
+1. Initialize the temperature vector, HVAC demand vector, and a dictionary for the dynamic matrices for solving the problem.
+2. Loop over the given `indices` and do the following:
+    3. Solve new temperatures if HVAC not in use.
+    4. Check if new temperatures would violate temperature limits.
+    5. If necessary, solve the HVAC demand required to keep temperatures within set limits.
+6. Return the solved temperatures and HVAC demand for each node and index.
+
+See the [`solve_heating_demand`](@ref) function for the overall formulation.
+"""
+function solve_heating_demand_loop(
+    archetype::ArchetypeBuilding,
+    indices::Vector{DateTime},
+    delta_t::Int64,
+    initial_temperatures::Vector{Float64},
+    min_temperatures::Vector{Float64},
+    max_temperatures::Vector{Float64},
+    external_load_vector::Vector{Vector{Float64}},
+    thermal_mass_vector::Vector{Float64},
+    free_dynamics::Bool,
+)
+    # Initialize the temperature vector, the HVAC heating/cooling demand vector,
+    # and the heating/cooling demand solving matrix Dict
+    len = length(initial_temperatures)
+    temperatures = vcat(
+        [initial_temperatures],
+        repeat([zeros(len)], length(indices))
+    )
+    hvac_demand = repeat([zeros(len)], length(indices))
+
+    # Loop over the indices, and solve the dynamics/HVAC demand.
+    for (i, t) in enumerate(indices)
+        # Calculate the new dynamics matrix and its inverse
+        dynamics_matrix, inverted_dynamics_matrix =
+            form_and_invert_dynamics_matrix(archetype, t, delta_t)
+
+        # Calculate the new temperatures without HVAC.
+        previous_temperature_effect_vector = thermal_mass_vector .* temperatures[i]
+        new_temperatures =
+            inverted_dynamics_matrix *
+            (external_load_vector[i] + previous_temperature_effect_vector)
+
+        # Check if the temperatures are within permissible limits.
+        max_temp_check = new_temperatures .<= max_temperatures
+        min_temp_check = new_temperatures .>= min_temperatures
+        temp_check = max_temp_check .* min_temp_check
+        if free_dynamics || all(temp_check)
+            # If yes, simply save the new temperatures & zero demand, and move on.
+            temperatures[i+1] = new_temperatures
+            hvac_demand[i] = zeros(size(new_temperatures))
+        else
+            # Else, calculate the required HVAC demand.
+            inverse_hvac_matrix =
+                form_and_invert_hvac_matrix(dynamics_matrix, temp_check)
+
+            # Find which nodes violate the temperature limits.
+            fixed_max_temp_inds = findall(.!(max_temp_check))
+            fixed_min_temp_inds = findall(.!(min_temp_check))
+
+            # Solve the HVAC demand and new temperatures.
+            # This is a bit complicated due to the violated temperatures
+            # becoming fixed, moving them from the left to the right-hand side
+            # of the system of equations.
+            hvac_solution =
+                inverse_hvac_matrix * (
+                    external_load_vector[i] .+ previous_temperature_effect_vector .-
+                    reduce(
+                        .+,
+                        dynamics_matrix[:, j] .* min_temperatures[j] for
+                        j in fixed_min_temp_inds;
+                        init=0.0
+                    ) .- reduce(
+                        .+,
+                        dynamics_matrix[:, j] .* max_temperatures[j] for
+                        j in fixed_max_temp_inds;
+                        init=0.0
+                    )
+                )
+
+            # Finally, separate the results into temperature and HVAC vectors.
+            # Note that violated temperatures were fixed, and replaced with
+            # the HVAC demand variables.
+            new_temperatures = deepcopy(hvac_solution)
+            new_temperatures[fixed_max_temp_inds] = max_temperatures[fixed_max_temp_inds]
+            new_temperatures[fixed_min_temp_inds] = min_temperatures[fixed_min_temp_inds]
+            hvac = zeros(size(hvac_solution))
+            hvac[fixed_max_temp_inds] = hvac_solution[fixed_max_temp_inds]
+            hvac[fixed_min_temp_inds] = hvac_solution[fixed_min_temp_inds]
+            temperatures[i+1] = new_temperatures
+            hvac_demand[i] = hvac
+        end
+    end
+    # Remove initial temperature vector and return the rest
+    popfirst!(temperatures)
+    return temperatures, hvac_demand
+end
+
+
+"""
+    form_and_invert_hvac_matrix(
+        dynamics_matrix::Matrix{Float64},
+        temp_check::BitVector
+    )
+
+Forms and inverts the matrix for solving HVAC demand in different situations.
+
+Essentially, this function performs the
+```math
+\\left( \\bm{A} - \\sum_{m \\in M}[\\bm{A}_{m} + \\bm{I}_{m}] \\right)^{-1}
+```
+transformation of the dynamics matrix `A`,
+where the otherwise violated temperature variables `m ∈ M` are fixed
+and replaced with a variable for the required heating/cooling demand.
+See the [`solve_heating_demand`](@ref) function for the overall formulation.
+"""
+function form_and_invert_hvac_matrix(
+    dynamics_matrix::Matrix{Float64},
+    temp_check::BitVector,
+)
+    # HVAC matrix is based on the dynamics matrix,
+    # except that all violated temperatures are fixed and their variables
+    # are replaced with hvac demand.
+    hvac_matrix = deepcopy(dynamics_matrix)
+    for i in findall(.!(temp_check))
+        hvac_matrix[:, i] .= 0.0
+        hvac_matrix[i, i] = -1.0
+    end
+    return inv(hvac_matrix)
+end
 
 
 """
@@ -338,54 +620,4 @@ function calculate_final_heating_demand(
             0.0,
         ) / 1e3
     return heating_demand_kW, cooling_demand_kW, heating_correction_W, cooling_correction_W
-end
-
-
-"""
-    solve_dhw_demand(
-        archetype::ArchetypeBuilding,
-        dhw_node_data::AbstractNode,
-        heating_temperatures_K::Dict{Object,SpineDataType},
-        cooling_temperatures_K::Dict{Object,SpineDataType},
-        hc_ratio::SpineDataType
-    )
-
-Solve the approximate domestic hot water demand.
-"""
-function solve_dhw_demand(
-    archetype::ArchetypeBuilding,
-    dhw_node_data::AbstractNode,
-    temperatures_K::Dict{Object,T} where {T<:SpineDataType},
-    hc_ratio::SpineDataType,
-)
-    # Fetch the abstract nodes and omit the dhw node.
-    abstract_nodes = copy(archetype.abstract_nodes)
-    pop!(abstract_nodes, dhw_node_data.building_node)
-
-    # Calculate the DHW demand for heating and cooling seasons separately.
-    dhw_demand_heating_kW =
-        (
-            -dhw_node_data.external_load_W +
-            dhw_node_data.self_discharge_coefficient_W_K *
-            dhw_node_data.heating_set_point_K +
-            sum(
-                get(dhw_node_data.heat_transfer_coefficients_W_K, node, 0.0) *
-                (dhw_node_data.heating_set_point_K - temperatures_K[node]) for
-                (node, node_data) in abstract_nodes
-            )
-        ) / 1e3
-    dhw_demand_cooling_kW =
-        (
-            -dhw_node_data.external_load_W +
-            dhw_node_data.self_discharge_coefficient_W_K *
-            dhw_node_data.cooling_set_point_K +
-            sum(
-                get(dhw_node_data.heat_transfer_coefficients_W_K, node, 0.0) *
-                (dhw_node_data.cooling_set_point_K - temperatures_K[node]) for
-                (node, node_data) in abstract_nodes
-            )
-        ) / 1e3
-
-    # Calculate and return the final estimated DHW demand.
-    return (dhw_demand_heating_kW * hc_ratio + dhw_demand_cooling_kW * (1 - hc_ratio))
 end

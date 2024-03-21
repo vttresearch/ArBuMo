@@ -1,0 +1,13 @@
+{
+    "name": "run_ArBuMo",
+    "tooltype": "julia",
+    "includes": [
+        "run_ArBuMo.jl"
+    ],
+    "description": "Run ArBuMo.jl to process archetype building data and definitions into SpineOpt and Backbone input data.",
+    "inputfiles": [],
+    "inputfiles_opt": [],
+    "outputfiles": [],
+    "cmdline_args": [],
+    "includes_main_path": "."
+}

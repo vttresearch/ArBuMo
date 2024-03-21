@@ -1,5 +1,5 @@
 #=
-    process_archetype_buildings.jl
+    run_ArBuMo.jl
 
 The main program for running the archetype building model via Spine Toolbox.
 =#
