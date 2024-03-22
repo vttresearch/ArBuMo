@@ -887,6 +887,7 @@ struct ArchetypeBuildingResults <: BuildingDataType
     hvac_consumption_kW::Dict{Object,SpineDataType}
     heating_correction_W::SpineDataType
     cooling_correction_W::SpineDataType
+    heating_to_cooling_ratio::SpineDataType
     """
         ArchetypeBuildingResults(
             archetype::ArchetypeBuilding;
@@ -905,7 +906,8 @@ struct ArchetypeBuildingResults <: BuildingDataType
         heating_demand_kW,
         cooling_demand_kW,
         heating_correction_W,
-        cooling_correction_W = solve_heating_demand(archetype; realization=realization)
+        cooling_correction_W,
+        heating_to_cooling_ratio = solve_heating_demand(archetype; realization=realization)
         hvac_consumption_kW =
             solve_consumption(archetype, heating_demand_kW, cooling_demand_kW; mod=mod)
         new(
@@ -916,6 +918,7 @@ struct ArchetypeBuildingResults <: BuildingDataType
             hvac_consumption_kW,
             heating_correction_W,
             cooling_correction_W,
+            heating_to_cooling_ratio
         )
     end
 end

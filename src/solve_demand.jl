@@ -165,6 +165,10 @@ function solve_heating_demand(
     heating_demand_kW, cooling_demand_kW, heating_correction_W, cooling_correction_W =
         calculate_final_heating_demand(archetype, temp_dict, air_node, free_nodes)
 
+    # Calculate the final heating-to-cooling demand ratio.
+    hc_ratio = heating_demand_kW / (heating_demand_kW + cooling_demand_kW)
+    replace!(x -> isnan(x) ? 0.5 : x, values(hc_ratio))
+
     # Replace indoor air node heating and cooling demands.
     heating_demand_dict_kW[air_node] = heating_demand_kW
     cooling_demand_dict_kW[air_node] = cooling_demand_kW
@@ -173,7 +177,8 @@ function solve_heating_demand(
     heating_demand_dict_kW,
     cooling_demand_dict_kW,
     heating_correction_W,
-    cooling_correction_W
+    cooling_correction_W,
+    hc_ratio
 end
 
 

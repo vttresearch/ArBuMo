@@ -155,7 +155,7 @@ end
         mod=m,
         save_layouts=false,
         realization=realization,
-    ) for archetype in m.building_archetype()
+    ) for archetype in m.building_archetype(:DH1_LBM)
 )
 
 
@@ -190,11 +190,11 @@ results__system_link_node = initialize_result_classes!(m)
 #=
 @info "Creating `SpineOptInput`..."
 @time spineopt = SpineOptInput(archetype_results; mod=m)
-#write_to_url(output_url, spineopt)
-
+write_to_url(output_url, spineopt)
+=#
 
 ## Test creating and writing Backbone input
-
+#=
 @info "Creating `BackboneInput`..."
 @time backbone = BackboneInput(archetype_results; mod=m)
 #write_to_url(output_url, backbone)
@@ -283,3 +283,11 @@ plot!(
     values(results.cooling_correction_W),
     label="Cooling correction",
 )
+display(correction_plt)
+
+hc_ratio_plt = plot(
+    keys(results.heating_to_cooling_ratio),
+    values(results.heating_to_cooling_ratio);
+    title="Heating-to-cooling demand ratio"
+)
+display(hc_ratio_plt)
