@@ -56,6 +56,25 @@ function solve_consumption(
             init=0.0,
         )
         hvac_consumption_kW[process] = cons_kW
+
+        # Check if HVAC sizing is sufficient
+        for ((dir, node), val) in process_data.maximum_flows_W
+            max_demand_kW = maximum(values(get(demand_map_kW[process_data.coefficient_of_performance_mode], node, 0)))
+            max_cons_kW = maximum(values(cons_kW))
+            if dir == mod.direction(:to_node) && max_demand_kW > (val / 1e3)
+                @warn """
+                Heating demand on node `$(archetype.archetype).$(node)` exceeds maximum power of process `$(process)`!
+                 - `maximum_demand_kW`: $(max_demand_kW)
+                 - `maximum_flows_kW`: $(val / 1e3)
+                """
+            elseif dir == mod.direction(:from_node) && max_cons_kW > (val / 1e3)
+                @warn """
+                Consumption from node `$(archetype.archetype).$(node)` exceeds maximum power of process `$(process)`!
+                 - `maximum_cons_kW`: $(max_cons_kW)
+                 - `maximum_flows_kW`: $(val / 1e3)
+                """
+            end
+        end
     end
     return hvac_consumption_kW
 end
