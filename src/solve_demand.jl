@@ -367,40 +367,34 @@ function initialize_temperatures(
     initial_temperatures::Union{Nothing,Dict{Object,Float64}},
 )
     # Fetch the allowed temperature limits.
-    min_temperatures =
-        float.(
-            [
-            !isnothing(n.heating_set_point_K) ?
-            n.heating_set_point_K :
-            200.0
-            for (k, n) in archetype.abstract_nodes
-        ]
-        )
-    max_temperatures =
-        float.(
-            [
-            !isnothing(n.cooling_set_point_K) ?
-            n.cooling_set_point_K :
-            400.0
-            for (k, n) in archetype.abstract_nodes
-        ]
-        )
+    min_temperatures = Vector{SpineDataType}([
+        !isnothing(n.heating_set_point_K) ?
+        n.heating_set_point_K :
+        200.0
+        for (k, n) in archetype.abstract_nodes
+    ])
+    max_temperatures = Vector{SpineDataType}([
+        !isnothing(n.cooling_set_point_K) ?
+        n.cooling_set_point_K :
+        400.0
+        for (k, n) in archetype.abstract_nodes
+    ])
 
     # Form the initial temperature vector.
     # Based on minimum temperatures unless otherwise defined.
     if !isnothing(initial_temperatures)
         init_temperatures =
-            float.([
-                get(initial_temperatures, n, min_temperatures[i]) for
+            float.(
+                get(initial_temperatures, n, first(values(min_temperatures[i]))) for
                 (i, n) in enumerate(keys(archetype.abstract_nodes))
-            ])
-        min_init_temperatures = deepcopy(init_temperatures)
+            )
+        min_init_temperatures = deepcopy(min_temperatures)
         max_init_temperatures = deepcopy(max_temperatures)
-        fixed_inds = findall(init_temperatures .!= min_temperatures)
+        fixed_inds = findall(init_temperatures .!= first.(values.(min_temperatures)))
         max_init_temperatures[fixed_inds] = init_temperatures[fixed_inds]
         free_dyn = false # If initial temperatures are given, dynamics aren't free.
     else
-        init_temperatures = deepcopy(min_temperatures)
+        init_temperatures = first.(values.(min_temperatures))
         min_init_temperatures = deepcopy(min_temperatures)
         max_init_temperatures = deepcopy(max_temperatures)
         free_dyn = free_dynamics
@@ -464,8 +458,8 @@ function solve_heating_demand_loop(
     indices::Vector{DateTime},
     delta_t::Int64,
     initial_temperatures::Vector{Float64},
-    min_temperatures::Vector{Float64},
-    max_temperatures::Vector{Float64},
+    min_temperatures::Vector{SpineDataType},
+    max_temperatures::Vector{SpineDataType},
     external_load_vector::Vector{Vector{Float64}},
     thermal_mass_vector::Vector{Float64},
     free_dynamics::Bool,
@@ -492,8 +486,16 @@ function solve_heating_demand_loop(
             (external_load_vector[i] + previous_temperature_effect_vector)
 
         # Check if the temperatures are within permissible limits.
-        max_temp_check = new_temperatures .<= max_temperatures
-        min_temp_check = new_temperatures .>= min_temperatures
+        max_temp_vec = [
+            parameter_value(max_temp)(t=t) for
+            max_temp in max_temperatures
+        ]
+        min_temp_vec = [
+            parameter_value(min_temp)(t=t) for
+            min_temp in min_temperatures
+        ]
+        max_temp_check = new_temperatures .<= max_temp_vec
+        min_temp_check = new_temperatures .>= min_temp_vec
         temp_check = max_temp_check .* min_temp_check
         if free_dynamics || all(temp_check)
             # If yes, simply save the new temperatures & zero demand, and move on.
@@ -517,12 +519,12 @@ function solve_heating_demand_loop(
                     external_load_vector[i] .+ previous_temperature_effect_vector .-
                     reduce(
                         .+,
-                        dynamics_matrix[:, j] .* min_temperatures[j] for
+                        dynamics_matrix[:, j] .* min_temp_vec[j] for
                         j in fixed_min_temp_inds;
                         init=0.0
                     ) .- reduce(
                         .+,
-                        dynamics_matrix[:, j] .* max_temperatures[j] for
+                        dynamics_matrix[:, j] .* max_temp_vec[j] for
                         j in fixed_max_temp_inds;
                         init=0.0
                     )
@@ -532,8 +534,8 @@ function solve_heating_demand_loop(
             # Note that violated temperatures were fixed, and replaced with
             # the HVAC demand variables.
             new_temperatures = deepcopy(hvac_solution)
-            new_temperatures[fixed_max_temp_inds] = max_temperatures[fixed_max_temp_inds]
-            new_temperatures[fixed_min_temp_inds] = min_temperatures[fixed_min_temp_inds]
+            new_temperatures[fixed_max_temp_inds] = max_temp_vec[fixed_max_temp_inds]
+            new_temperatures[fixed_min_temp_inds] = min_temp_vec[fixed_min_temp_inds]
             hvac = zeros(size(hvac_solution))
             hvac[fixed_max_temp_inds] = hvac_solution[fixed_max_temp_inds]
             hvac[fixed_min_temp_inds] = hvac_solution[fixed_min_temp_inds]
