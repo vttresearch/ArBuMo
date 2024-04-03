@@ -329,29 +329,38 @@ function add_results!(
         ),
     )
 
-    # Add `results__system_link_node` results.
-    add_object_parameter_values!(
-        results__system_link_node,
-        Dict(
-            sys_link_n => Dict(
-                :total_consumption_MW => parameter_value(
-                    sum(
-                        mod.hvac_consumption_MW(
-                            building_archetype=arch,
-                            building_process=p,
-                        ) for
-                        (arch, p) in mod.results__building_archetype__building_process() if
-                        p in mod.building_process__direction__building_node(
-                            direction=mod.direction(:from_node),
-                            building_node=sys_link_n,
-                        )
+    # Add `results__system_link_node` results if able.
+    # Doesn't work if the result timeseries don't overlap.
+    try
+        add_object_parameter_values!(
+            results__system_link_node,
+            Dict(
+                sys_link_n => Dict(
+                    :total_consumption_MW => parameter_value(
+                        sum(
+                            mod.hvac_consumption_MW(
+                                building_archetype=arch,
+                                building_process=p,
+                            ) for
+                            (arch, p) in mod.results__building_archetype__building_process() if
+                            p in mod.building_process__direction__building_node(
+                                direction=mod.direction(:from_node),
+                                building_node=sys_link_n,
+                            )
+                        ),
                     ),
-                ),
-            ) for sys_link_n in mod.building_archetype__system_link_node(
-                building_archetype=collect(keys(results_dictionary))
-            )
-        ),
-    )
+                ) for sys_link_n in mod.building_archetype__system_link_node(
+                    building_archetype=collect(keys(results_dictionary))
+                )
+            ),
+        )
+    catch
+        @warn """
+        Could not calculate total `results__system_link_node`!
+        This is most likely due to non-uniform timespans between
+        the modelled `building_archetype`s.
+        """
+    end
 
     # Return the results of interest
     return results__building_archetype,
