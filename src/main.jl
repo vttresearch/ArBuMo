@@ -27,17 +27,16 @@ end
     archetype_building_processing(
         mod::Module=@__MODULE__;
         save_layouts::Bool=false,
-        realization::Symbol=:realization
+        realization::Symbol=:realization,
     )
 
 Process the [`ScopeData`](@ref) and [`ArchetypeBuilding`](@ref) objects.
 
 Essentially, processes all the necessary information for [`ArchetypeBuilding`](@ref)
-creation, and returns the `scope_data_dictionary`, `weather_data_dictionary`,
-and `archetype_dictionary` for examining the processed data.
-If `save_layouts == true`, diagnostic figures of the weather aggregation
-layouts are saved into `figs/`. The `mod` keyword changes from which
-Module data is accessed from, `@__MODULE__` by default.
+creation, and returns the `scope_data_dictionary` and `archetype_dictionary`
+for examining the processed data. `mod` affects which Module data is accessed from,
+`@__MODULE__` by default. If `save_layouts == true`,
+diagnostic figures of the weather aggregation layouts are saved into `figs/`.
 The `realization` keyword is used to indicate the true data from potentially
 stochastic input.
 
@@ -79,7 +78,7 @@ end
     solve_archetype_building_hvac_demand(
         archetype_dictionary::Dict{Object,ArchetypeBuilding};
         mod::Module=@__MODULE__,
-        realization::Symbol=:realization
+        realization::Symbol=:realization,
     )
 
 Solve the [`ArchetypeBuilding`](@ref) heating and cooling demand.
@@ -116,7 +115,16 @@ end
 
 Initialize `RelationshipClass`es for storing heating and HVAC demand results in `mod`.
 
+Essentially creates the `results__building_archetype`,
+`results__building_archetype__building_node`, `results__building_archetype__building_process`,
+and `results__system_link_node` `RelationshipClass`es, as well as their associated
+`Parameter`s to be eventually saved into a Spine Datastore.
 Note that this function modifies `mod` directly!
+
+Returns the `results__building_archetype`,
+`results__building_archetype__building_node`,
+`results__building_archetype__building_process`,
+and `results__system_link_node`.
 """
 function initialize_result_classes!(mod::Module)
     # Initialize archetype results
@@ -238,13 +246,23 @@ end
         results__building_archetype__building_process::RelationshipClass,
         results__system_link_node::ObjectClass,
         results_dictionary::Dict{Object,ArchetypeBuildingResults};
-        mod::Module = @__MODULE__
+        mod::Module=@__MODULE__
     )
 
-    Add results from `results_dictionary` into the result `RelationshipClass`es.
+Add results from `results_dictionary` into the result `RelationshipClass`es.
 
-    NOTE! The `mod` keyword changes from which Module data is accessed from,
-    `@__MODULE__` by default.
+Essentially uses the `add_relationship_parameter_values!` and
+`add_object_parameter_values` functions from `SpineInterface` to
+populate the input `RelationshipClass`es with the results contained
+in the `results_dictionary`.
+
+NOTE! The `mod` keyword changes from which Module data is accessed from,
+`@__MODULE__` by default. This function modifies `mod` directly!
+
+Returns the modified `results__building_archetype`,
+`results__building_archetype__building_node`,
+`results__building_archetype__building_process`,
+and `results__system_link_node`.
 """
 function add_results!(
     results__building_archetype::RelationshipClass,

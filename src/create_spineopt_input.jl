@@ -2,6 +2,7 @@
     create_spineopt_input.jl
 
 Functions and structs for handling input data for SpineOpt based on the archetype building model.
+WIP! SpineOpt changes required to implement new deviation formulation?
 =#
 
 """
