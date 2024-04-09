@@ -5,7 +5,7 @@ Contains functions for the main program `process_archetype_buildings.jl`.
 =#
 
 """
-    run_input_data_tests(mod::Module = @__MODULE__)
+    run_input_data_tests(mod::Module=@__MODULE__)
 
 Runs input data tests for the Datastore loaded to module `mod`, `@__MODULE__` by default.
 

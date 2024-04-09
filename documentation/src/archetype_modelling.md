@@ -93,7 +93,7 @@ Solar gains through the windows are impacted by the window properties in
 the assumed [window\_non\_perpendicularity\_correction\_factor](@ref),
 as well as the estimated [external\_shading\_coefficient](@ref) and
 [window\_area\_distribution\_towards\_cardinal\_directions](@ref).
-See the [`ArBuMo.calculate_total_solar_gains`](@ref)
+See the [`ArBuMo.calculate_window_solar_gains`](@ref)
 for the exact formulation.
 
 Meanwhile, the solar gains through the building envelope are impacted by the

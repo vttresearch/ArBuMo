@@ -16,13 +16,15 @@ large-scale energy system model input.
         mod::Module=@__MODULE__
     )
 
-Process a `BuildingNodeNetwork` into an `AbstractNodeNetwork`.
+Process a [`BuildingNodeNetwork`](@ref) into an [`AbstractNodeNetwork`](@ref).
 
 The main purpose of this step is to account for weather-dependencies
 contained in the `weather::WeatherData` input. However, the
-`AbstractNodeNetwork` is also computationally useful,
+[`AbstractNodeNetwork`](@ref) is also computationally useful,
 e.g. for creating model-agnostic input for multiple
 large-scale energy system models.
+
+Returns the newly created [`AbstractNodeNetwork`](@ref).
 """
 function create_abstract_node_network(
     archetype::Object,
@@ -57,26 +59,28 @@ end
         mod::Module=@__MODULE__
     )
 
-Calculate the properties of an [`AbstractNode`](@ref) corresponding to the `node` in the `building_node_network`.
+Calculate the properties of an [`AbstractNode`](@ref).
 
-Combines all the individual parameters in [`BuildingNodeData`](@ref)s in [`BuildingNodeNetwork`](@ref)
-into the bare minimum parameters required for modelling lumped-capacitance thermal nodes
-in our energy system modelling frameworks. This reduced form is also convenient
-for some later heating demand calculations as well.
+Combines all the individual parameters in [`BuildingNodeData`](@ref)s
+in [`BuildingNodeNetwork`](@ref) into the bare minimum parameters required
+for modelling lumped-capacitance thermal nodes in energy system modelling
+frameworks. This reduced form is also convenient for some later heating
+demand calculations as well.
 
 Essentially, this function performs the following steps:
 1. Sum all the thermal mass components together and convert into [Wh/K].
 2. Sum all the self-discharge and ambient heat transfer components together.
 3. Collect heat transfer coefficients between the interior air node and this one.
 4. Update heat transfer coefficients based on user-defined coefficients.
-5. Sum together the internal heat gains, solar gains, radiative sky heat losses, DHW demand, as well as the impact of ambient temperatures.
-6. Return the components required for constructing an [`AbstractNode`](@ref).
+5. [`calculate_convective_solar_gains`](@ref), [`calculate_radiative_solar_gains`](@ref), [`calculate_total_envelope_solar_gains`](@ref), and [`calculate_envelope_radiative_sky_losses`](@ref).
+6. Calculate the net impact of internal heat gains, solar gains, radiative sky heat losses, DHW demand, as well as the impact of ambient temperatures.
+7. Return the components required for constructing an [`AbstractNode`](@ref).
 
-**NOTE!** The ambient temperatures are accounted for via a combination of `self_discharge_coefficient_W_K`
-and `external_load_W`, instead of  `heat_transfer_coefficients_W_K` on any ambient temperature nodes,
-as illustrated by the equations below.
-Typically, the heat balance equation in simplified lumped-capacitance thermal
-models is cast as
+**NOTE!** The ambient temperatures are accounted for via a combination of
+`self_discharge_coefficient_W_K` and `external_load_W`, instead of
+`heat_transfer_coefficients_W_K` on any ambient temperature nodes,
+as illustrated by the equations below. Typically, the heat balance equation
+in simplified lumped-capacitance thermal models is cast as
 ```math
 C_n \\frac{dT_n(t)}{dt} = H_{amb,n} \\left( T_{amb}(t) - T_{n}(t) \\right) + \\sum_{m \\in \\mathbb{N}} \\left[ H_{n,m} \\left( T_{m}(t) - T_{n}(t) \\right) \\right] + \\Sigma P_{n}(t) + \\Sigma \\Phi_{n}(t),
 ```
@@ -88,16 +92,17 @@ where `C_n` is the effective thermal mass of node `n`,
 `H_{n,m}` is the conductance between nodes `n` and `m`,
 `∑P_{n}(t)` is the total impact of HVAC equipment,
 and `∑Φ_{n}(t)` is the total effect of internal and solar heat gains.
-However, large-scale energy system models rarely support ambient temperature `T_{amb}(t)`
-as input data directly, requiring the above equation to be cast as
+However, large-scale energy system models rarely support ambient temperature
+`T_{amb}(t)` as input data directly, requiring the above equation to be cast as
 ```math
 C_n \\frac{dT_n(t)}{dt} = - H_{amb,n} T_{n}(t) + \\sum_{m \\in N} \\left[ H_{n,m} \\left( T_{m}(t) - T_{n}(t) \\right) \\right] + \\Sigma P_{n}(t) + \\left( H_{amb,n} T_{amb}(t) + \\Sigma \\Phi_{n}(t) \\right).
 ```
 Now the `- H_{amb,n} T_{n}(t)` term can be interpreted as self-discharge losses,
-while the `H_{amb,n} T_{amb}(t)` term can be bundled together with other external
-influences on the node, both supported by typical large-scale energy system models.
-Unfortunately, this has the side-effect of making the energy-system-model-level
-input data quite unintuitive, but avoids the need to implement ambient-temperature-dependent
+while the `H_{amb,n} T_{amb}(t)` term can be bundled together with other
+external influences on the node, both supported by typical large-scale energy
+system models. Unfortunately, this has the side-effect of making the
+energy-system-model-level input data quite unintuitive,
+but avoids the need to implement ambient-temperature-dependent
 interactions in complicated energy system modelling frameworks.
 
 **NOTE!** All heat transfer coefficients are forced to be symmetrical!
@@ -256,12 +261,14 @@ NOTE! The `mod` keyword changes from which Module data is accessed from,
 
 Loosely based on EN ISO 52016-1:2017 6.5.13.2,
 accounting for the solar heat gains through the windows of the building.
-Solar heat gains through the envelope are handled via [`calculate_envelope_solar_gains`](@ref).
+Solar heat gains through the envelope are handled via
+[`calculate_envelope_solar_gains`](@ref).
 
-The varying angle of incidence of the irradiation on the windows is accounted for
-using a very simple average non-perpendicularity factor.
-The frame-area fraction of the windows is accounted for in the solar energy transmittance,
-and window area distribution is handled using the shares towards cardinal directions.
+The varying angle of incidence of the irradiation on the windows is accounted
+for using a very simple average non-perpendicularity factor.
+The frame-area fraction of the windows is accounted for in the solar
+energy transmittance, and window area distribution is handled using the
+shares towards cardinal directions.
 ```math
 \\Phi_\\text{sol} = f_\\text{np} g_\\text{gl} A_\\text{w} \\sum_{d \\in \\text{H,V}} \\left( w_d I_\\text{eff,d} \\right)
 ```
@@ -312,11 +319,12 @@ Loosely based on EN ISO 52016-1:2017 Section 6.5.6.3.5,
 approximately accounts for the incident solar irradiation, while
 approximate radiative sky heat losses from the envelope are handled via
 [`calculate_envelope_radiative_sky_losses`](@ref).
-Solar heat gains through windows are handled via [`calculate_total_solar_gains`](@ref).
+Solar heat gains through windows are handled via
+[`calculate_window_solar_gains`](@ref).
 
 Essentially, the exterior of the surface is assumed to have negligible thermal mass,
-and the impact of the incident irradiation is applied to the structural node directly.
-The solar gains `Φ_sol,st` need to be calculated separately for
+and the impact of the incident irradiation is applied to the structural node
+directly. The solar gains `Φ_sol,st` need to be calculated separately for
 each [structure\\_type](@ref), as they are dependent on the exterior surface resistance:
 ```math
 \\Phi_\\text{sol,st} = R_\\text{e,st} U_\\text{ext,st} A_\\text{st} a_\\text{sol} I_\\text{eff,st}
@@ -442,16 +450,16 @@ Calculate the convective solar heat gains through windows on the `node` in [W].
 NOTE! The `mod` keyword changes from which Module data is accessed from,
 `@__MODULE__` by default.
 
-Essentially, takes the given solar heat gain profile in `loads` and
-multiplies it with the share of interior air on this `node` as well as the
+Essentially, takes the given solar heat gain profile in `loads` if
+this `node` incldues the interior air, and multiplies it with the
 assumed convective fraction of solar heat gains.
 ```math
 \\Phi_\\text{sol,conv,n} = f_\\text{sol,conv} \\Phi_\\text{sol}
 ```
 where `f_sol,conv` is the assumed [solar\\_heat\\_gain\\_convective\\_fraction](@ref),
-and `Φ_sol` are the total solar heat gains into the building.
-See [`calculate_total_solar_gains`](@ref) for how the total solar heat gains
-are calculated.
+and `Φ_sol` are the solar heat gains into the building through the windows.
+See [`calculate_window_solar_gains`](@ref) for how the solar heat gains
+through the windows are calculated.
 
 Note that convective solar gains are only calculated for the
 [is\\_interior\\_node](@ref).
@@ -474,13 +482,11 @@ end
     calculate_radiative_solar_gains(
         archetype::Object,
         node::Object,
+        scope::ScopeData,
         envelope::EnvelopeData,
-        loads::LoadsData,
-        total_structure_area_m2::Real;
-        mod::Module = @__MODULE__,
+        weather::WeatherData;
+        mod::Module=@__MODULE__
     )
-
-TODO: Revise documentation
 
 Calculate the radiative solar heat gains through windows on the `node` in [W].
 
@@ -500,8 +506,8 @@ where `f_sol,conv` is the assumed [solar\\_heat\\_gain\\_convective\\_fraction](
 `w_n,st` is the [structure\\_type\\_weight](@ref) of the structure `st` on this node,
 `A_st` is the surface area of structure `st`,
 and `Φ_sol` are the total solar heat gains into the building.
-See [`calculate_total_solar_gains`](@ref) for how the total solar heat gains
-are calculated.
+See [`calculate_window_solar_gains`](@ref) for how the solar heat gains
+through the windows are calculated.
 """
 function calculate_radiative_solar_gains(
     archetype::Object,
@@ -511,25 +517,26 @@ function calculate_radiative_solar_gains(
     weather::WeatherData;
     mod::Module=@__MODULE__
 )
-    calculate_window_solar_gains(archetype, scope, envelope, weather; mod=mod) *
     (1 - mod.solar_heat_gain_convective_fraction(building_archetype=archetype)) *
     sum(
         mod.structure_type_weight(building_node=node, structure_type=st) *
         getfield(envelope, st.name).surface_area_m2 / envelope.total_structure_area_m2 for
         st in mod.building_node__structure_type(building_node=node);
         init=0,
-    )
+    ) *
+    calculate_window_solar_gains(archetype, scope, envelope, weather; mod=mod)
 end
 
 
 """
     calculate_total_envelope_solar_gains(
+        archetype::Object,
         node::Object,
-        loads::LoadsData;
-        mod::Module = @__MODULE__,
+        scope::ScopeData,
+        envelope::EnvelopeData,
+        weather::WeatherData;
+        mod::Module=@__MODULE__
     )
-
-TODO: Revise documentation!
 
 Calculate the total solar heat gain [W] through the opaque envelope on this node.
 
@@ -540,7 +547,8 @@ NOTE! The `mod` keyword changes from which Module data is accessed from,
 \\Phi_\\text{env,n} = \\sum_{st \\in n} w_\\text{n,st} \\Phi_\\text{sol,st},
 ```
 `w_n,st` is the [structure\\_type\\_weight](@ref) of the structure `st` on this node `n`,
-and `Φ_sol,st` are the heat gains through envelope structures using [`calculate_envelope_solar_gains`](@ref).
+and `Φ_sol,st` are the heat gains through envelope structures using
+[`calculate_envelope_solar_gains`](@ref).
 """
 function calculate_total_envelope_solar_gains(
     archetype::Object,
@@ -565,14 +573,14 @@ end
 
 """
     calculate_total_envelope_radiative_sky_losses(
+        archetype::Object,
         node::Object,
-        loads::LoadsData;
-        mod::Module = @__MODULE__,
+        scope::ScopeData,
+        envelope::EnvelopeData;
+        mod::Module=@__MODULE__
     )
 
 Calculate the total radiative envelope sky heat losses [W] for this node.
-
-TODO: Revise documentation!
 
 NOTE! The `mod` keyword changes from which Module data is accessed from,
 `@__MODULE__` by default.
@@ -581,7 +589,8 @@ NOTE! The `mod` keyword changes from which Module data is accessed from,
 \\Phi_\\text{sky,n} = \\sum_{st \\in n} w_\\text{n,st} \\Phi_\\text{sky,st},
 ```
 `w_n,st` is the [structure\\_type\\_weight](@ref) of the structure `st` on this node `n`,
-and `Φ_sky,st` are the envelope radiative sky heat losses using [`calculate_envelope_radiative_sky_losses`](@ref).
+and `Φ_sky,st` are the envelope radiative sky heat losses using
+[`calculate_envelope_radiative_sky_losses`](@ref).
 """
 function calculate_total_envelope_radiative_sky_losses(
     archetype::Object,
