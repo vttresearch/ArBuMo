@@ -6,7 +6,7 @@ Contains functions for processing the data for `building_scope` database objects
 
 
 """
-    process_building_stock_scope(scope::Object; mod::Module = @__MODULE__)
+    process_building_stock_scope(scope::Object; mod::Module=@__MODULE__)
 
 Process the aggregated `building_stock_statistic` properties of a `scope`.
 
@@ -78,7 +78,7 @@ end
 
 
 """
-    _building_period_weight(building_period::Object, building_scope::Object; mod::Module = @__MODULE__)
+    _building_period_weight(period::Object, scope::Object; mod::Module=@__MODULE__)
 
 Calculate the weight of a `building_period` within a `building_scope`.
 
@@ -127,8 +127,8 @@ end
     calculate_gross_floor_area_weights(
         scope::Object,
         relevant_building_stock_statistics::Vector,
-        building_period_weights::Dict{Object,T} where T <: Real;
-        mod::Module = @__MODULE__,
+        building_period_weights::Dict{Object,T} where {T<:Real};
+        mod::Module=@__MODULE__,
     )
 
 Calculate the gross-floor area weights for the `relevant_building_stock_statistics`.
@@ -158,7 +158,7 @@ function calculate_gross_floor_area_weights(
     scope::Object,
     relevant_building_stock_statistics::Vector,
     building_period_weights::Dict{Object,T} where {T<:Real};
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     # Initialize gross-floor area weights by calculating the weighted number of buildings.
     gross_floor_area_weights = [
@@ -275,7 +275,7 @@ end
 """
     process_ventilation_and_fenestration_scope(
         aggregated_gfa_weights::Dict{NTuple{3,Object},Float64};
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
 
 Aggregate `ventilation_and_fenestration_statistics` using gross-floor area weights.
@@ -296,7 +296,7 @@ where `p` is any of the above listed properties to be aggregated.
 """
 function process_ventilation_and_fenestration_scope(
     aggregated_gfa_weights::Dict{NTuple{3,Object},Float64};
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     # Calculate the aggregated ventilation and fenestration parameters.
     hru_efficiency, inf_rate, sol_transm, ven_rate, win_U = [
@@ -318,7 +318,7 @@ end
 """
     process_structure_scope(
         aggregated_gfa_weights::Dict{NTuple{3,Object},Float64};
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
 
 Aggregate `structure_statistics` using gross-floor area weights.
@@ -342,7 +342,7 @@ where `p` is any of the above listed properties to be aggregated.
 """
 function process_structure_scope(
     aggregated_gfa_weights::Dict{NTuple{3,Object},Float64};
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     return Dict{Object,StructureData}(
         st => StructureData(

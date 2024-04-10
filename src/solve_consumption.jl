@@ -10,10 +10,10 @@ not just the HVAC demand handled in `solve_demand.jl`.
         archetype::ArchetypeBuilding,
         heating_demand_kW::Dict{Object,T} where {T<:SpineDataType},
         cooling_demand_kW::Dict{Object,T} where {T<:SpineDataType};
-        mod::Module=@__MODULE__
+        mod::Module=@__MODULE__,
     )
 
-Solve the consumption of `archetype.building_processes` based on the `hvac_demand`.
+Solve the consumption of `archetype.building_processes` based on the `heating_demand_kW` and `cooling_demand_kW`.
 
 NOTE! The `mod` keyword changes from which Module data is accessed from,
 `@__MODULE__` by default.
@@ -30,7 +30,7 @@ function solve_consumption(
     archetype::ArchetypeBuilding,
     heating_demand_kW::Dict{Object,T} where {T<:SpineDataType},
     cooling_demand_kW::Dict{Object,T} where {T<:SpineDataType};
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     # Map COP modes to their respective demands.
     demand_map_kW = Dict(:heating => heating_demand_kW, :cooling => cooling_demand_kW)

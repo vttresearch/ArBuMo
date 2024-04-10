@@ -6,7 +6,11 @@ This file contains the functions for processing the building envelope.
 
 
 """
-    process_building_envelope(archetype::Object, data::ScopeData; mod::Module = @__MODULE__)
+    process_building_envelope(
+        archetype::Object,
+        data::ScopeData;
+        mod::Module=@__MODULE__
+    )
 
 Calculate the dimensions of the `archetype` building envelope based on the assumptions and
 aggregated building stock data.
@@ -36,6 +40,7 @@ The building envelope calculations proceed as follows:
 5. Window dimensions using [`calculate_window_dimensions`](@ref).
 6. Exterior wall dimensions using [`calculate_exterior_wall_dimensions`](@ref).
 7. Partition wall dimensions using [`calculate_partition_wall_dimensions`](@ref).
+8. Calculate total structure area as a sum of the above for convenience.
 """
 function process_building_envelope(
     archetype::Object,
@@ -109,7 +114,7 @@ end
     calculate_base_floor_dimensions(
         data::ScopeData,
         storeys::Real,
-        frame_depth_m::Real
+        frame_depth_m::Real,
     )
 
 Calculate the base floor dimensions, assuming a rectangular building.
@@ -145,8 +150,8 @@ end
 """
     calculate_roof_dimensions(
         base_floor::NamedTuple,
+        frame_depth_m::Real,
         storeys::Real,
-        frame_depth_m::Real
     )
 
 Calculate the roof dimensions assuming a rectangular building.
@@ -190,7 +195,7 @@ end
         data::ScopeData,
         base_floor::NamedTuple,
         storeys::Real,
-        frame_depth_m::Real
+        frame_depth_m::Real,
     )
 
 Calculate the separating floor dimensions assuming a rectangular building.
@@ -272,7 +277,7 @@ end
 """
     calculate_window_dimensions(
         vertical_envelope_area_m2::Real,
-        window_to_wall_ratio::Real
+        window_to_wall_ratio::Real,
     )
 
 Calculate the window dimensions assuming a rectangular building.
@@ -308,7 +313,7 @@ end
         window::NamedTuple,
         load_bearing_fraction::Real,
         storeys::Real,
-        room_height_m::Real
+        room_height_m::Real,
     )
 
 Calculate the dimensions of exterior walls, assuming a rectangular building.
@@ -362,7 +367,7 @@ end
     calculate_partition_wall_dimensions(
         vertical_envelope_area_m2::Real,
         partition_wall_ratio::Real,
-        load_bearing_fraction::Real
+        load_bearing_fraction::Real,
     )
 
 Calculate the partition wall dimensions, assuming a rectangular building.

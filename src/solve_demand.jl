@@ -7,28 +7,26 @@ Functions for solving the heating/cooling demands of `ArchetypeBuilding`s.
 
 """
     solve_heating_demand(
-        archetype::ArchetypeBuilding,
-        free_dynamics::Bool,
-        initial_temperatures::Union{Nothing,Dict{Object,Float64}};
-        realization::Symbol = :realization,
+        archetype::ArchetypeBuilding;
+        realization::Symbol=:realization,
+        free_dynamics::Bool=false,
+        initial_temperatures::Nothing=nothing,
     )
 
 Solve the heating/cooling demand of the `archetype`.
 
-TODO: Revise documentation.
-
 Note that this function calculates the "final energy demand" of the archetype
 building, and not the energy consumption of it's HVAC systems.
+See the [`solve_consumption`](@ref) function for that.
 Furthermore, the calculations are deterministic, with `realization` defining
 the true data from potentially stochastic input.
-See the [`solve_consumption`](@ref) function for that.
 Essentially, performs the following steps:
 1. Check external load data and [`determine_temporal_structure`](@ref).
-2. [`form_and_invert_dynamics_matrix`](@ref) for the free temperature dynamics.
-3. Initialize external load an thermal mass vectors using [`initialize_rhs`](@ref).
-4. Initialize temperature and temperature limit vectors using [`initialize_temperatures`](@ref).
-5. Solve the heating demand using [`solve_heating_demand_loop`](@ref).
-6. Rearrange the solution into `Dict`s and return them.
+2. Initialize external load an thermal mass vectors using [`initialize_rhs`](@ref).
+3. Initialize temperature and temperature limit vectors using [`initialize_temperatures`](@ref).
+4. Solve the heating demand using [`solve_heating_demand_loop`](@ref).
+5. Rearrange the solution into `Dict`s.
+6. [`calculate_final_heating_demand`](@ref) by applying the thermal mass dynamic correction to the preliminary heating and cooling demand from ArBuWe.py.
 
 Uses an extremely simple rule-based control to solve the heating/cooling
 demand of the archetype building. The controller intervenes
@@ -37,7 +35,7 @@ and provides the required energy input to maintain the system at the limit.
 
 The building dynamics are discretized using implicit *(backwards)* Euler,
 mainly for consistency with our existing energy system modelling tools
-like Backbone or SpineOpt. In principle, I believe the system could be solved
+like Backbone or SpineOpt. In principle, I the system could be solved
 analytically similar to my Master's Thesis, if better accuracy would be desired:
 *Energy Management in Households with Coupled Photovoltaics and Electric Vehicles, Topi Rasku, 2015, Aalto University School of Science*.
 
@@ -86,12 +84,16 @@ and `I_m` represents column `m` from an identity matrix.
 Please note that there are both matrix and vector selections of `A_m`,
 where the matrix selection preserves the dimensions with filling zeroes,
 while the vector selection is essentially only the selected column in vector form.
+
+The final heating and cooling demand is calculated based on the preliminary
+heating and cooling demand obtained from ArBuWe.py, with a correction applied
+using the simulated node temperatures and heat transfers.
 """
 function solve_heating_demand(
     archetype::ArchetypeBuilding;
     realization::Symbol=:realization,
     free_dynamics::Bool=false,
-    initial_temperatures::Nothing=nothing
+    initial_temperatures::Nothing=nothing,
 )
     # Categorize nodes based on their role.
     (air_node, air_node_data) =
@@ -185,16 +187,13 @@ end
 """
     determine_temporal_structure(
         archetype::ArchetypeBuilding;
-        realization::Symbol = :realization,
+        realization::Symbol=:realization,
     )
 
 Check that `external_load_W` timeseries are consistent in the `AbstractNodeNetwork`,
 and determine the time series indices and the `delta_t`.
 
-TODO: Revise documentation.
-
-Note that the time series need to have a constant `delta_t` in order for the
-dynamic matrix to be time-invarying, speeding up the solving process significantly.
+Note that the time series need to have a constant `delta_t`.
 The `realization` keyword is necessary to indicate the true data from potentially
 stochastic input.
 """
@@ -236,12 +235,14 @@ end
 
 
 """
-    form_and_invert_dynamics_matrix(archetype::ArchetypeBuilding, delta_t::Int64)
+    form_and_invert_dynamics_matrix(
+        archetype::ArchetypeBuilding,
+        t::DateTime,
+        delta_t::Int64,
+    )
 
 Forms and inverts the implicit Euler discretized dynamics matrix for the
 `AbstractNodeNetwork`.
-
-TODO: Revise documentation!
 
 The implicit Euler discretized dynamics matrix `A` is formed as follows:
 ```math
@@ -260,7 +261,7 @@ and `H_{m,n}` is the heat transfer coefficient between nodes `n` and `m`.
 function form_and_invert_dynamics_matrix(
     archetype::ArchetypeBuilding,
     t::DateTime,
-    delta_t::Int64
+    delta_t::Int64,
 )
     # Initialize the implicit Euler dynamics matrix.
     len = length(archetype.abstract_nodes)
@@ -291,7 +292,7 @@ end
         archetype::ArchetypeBuilding,
         indices::Vector{Dates.DateTime},
         delta_t::Int64;
-        realization::Symbol = :realization,
+        realization::Symbol=:realization,
     )
 
 Initialize the right-hand side of the linear equation system,
@@ -313,7 +314,7 @@ function initialize_rhs(
     archetype::ArchetypeBuilding,
     indices::Vector{Dates.DateTime},
     delta_t::Int64;
-    realization::Symbol=:realization
+    realization::Symbol=:realization,
 )
     # Process the nodal `external_load_W`s into a nested vector for easy access.
     external_load_vector = [
@@ -335,8 +336,7 @@ end
     initialize_temperatures(
         archetype::ArchetypeBuilding,
         indices::Vector{DateTime},
-        dynamics_matrix::Matrix{Float64},
-        inverted_dynamics_matrix::Matrix{Float64},
+        delta_t::Int64,
         external_load_vector::Vector{Vector{Float64}},
         thermal_mass_vector::Vector{Float64},
         free_dynamics::Bool,
@@ -429,16 +429,15 @@ end
 
 """
     solve_heating_demand_loop(
+        archetype::ArchetypeBuilding,
         indices::Vector{DateTime},
-        dynamics_matrix::Matrix{Float64},
-        inverted_dynamics_matrix::Matrix{Float64},
-        temperatures::Vector{Vector{Float64}},
-        min_temperatures::Vector{Float64},
-        max_temperatures::Vector{Float64},
+        delta_t::Int64,
+        initial_temperatures::Vector{Float64},
+        min_temperatures::Vector{SpineDataType},
+        max_temperatures::Vector{SpineDataType},
         external_load_vector::Vector{Vector{Float64}},
         thermal_mass_vector::Vector{Float64},
         free_dynamics::Bool,
-        initial_temperatures::Vector{Float64}
     )
 
 Solve the heating/cooling demand one timestep at a time over the given indices.
@@ -446,10 +445,11 @@ Solve the heating/cooling demand one timestep at a time over the given indices.
 Essentially, performs the following steps:
 1. Initialize the temperature vector, HVAC demand vector, and a dictionary for the dynamic matrices for solving the problem.
 2. Loop over the given `indices` and do the following:
-    3. Solve new temperatures if HVAC not in use.
-    4. Check if new temperatures would violate temperature limits.
-    5. If necessary, solve the HVAC demand required to keep temperatures within set limits.
-6. Return the solved temperatures and HVAC demand for each node and index.
+    3. Invert the dynamics matrix using [`inverted_dynamics_matrix`](@ref).
+    4. Solve new temperatures if HVAC not in use.
+    5. Check if new temperatures would violate temperature limits.
+    6. If necessary, solve the HVAC demand via [`form_and_invert_hvac_matrix`](@ref) required to keep temperatures within set limits.
+7. Return the solved temperatures and HVAC demand for each node and index.
 
 See the [`solve_heating_demand`](@ref) function for the overall formulation.
 """
@@ -552,7 +552,7 @@ end
 """
     form_and_invert_hvac_matrix(
         dynamics_matrix::Matrix{Float64},
-        temp_check::BitVector
+        temp_check::BitVector,
     )
 
 Forms and inverts the matrix for solving HVAC demand in different situations.
@@ -592,7 +592,13 @@ end
 
 Calculate the final heating and cooling demands of the interior air node.
 
-TODO: Docstring!
+Essentially, calculates the heating/cooling demand corrections for the preliminary
+heating and cooling demands from ArBuWe.py based on the dynamic node temperatures
+and their heat transfer coefficients.
+
+Returns the final corrected `heating_demand_kW` and `cooling_demand_kW`,
+as well as the `heating_correction_W` and `cooling_correction_W` for debug
+purposes.
 """
 function calculate_final_heating_demand(
     archetype::ArchetypeBuilding,

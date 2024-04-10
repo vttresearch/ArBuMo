@@ -10,7 +10,7 @@ and solar gains for the archetype buildings.
     process_building_loads(
         archetype::Object,
         scope::ScopeData;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
 
 Calculate the domestic hot water demand and internal heat gains for the archetype building.
@@ -27,7 +27,7 @@ Essentially, performs the following steps:
 function process_building_loads(
     archetype::Object,
     scope::ScopeData;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     # Find the `building_loads` connected to the `archetype`
     loads = only(mod.building_archetype__building_loads(building_archetype=archetype))
@@ -40,7 +40,11 @@ end
 
 
 """
-    calculate_total_dhw_demand(loads::Object, scope::ScopeData; mod::Module = @__MODULE__)
+    calculate_total_dhw_demand(
+        loads::Object,
+        scope::ScopeData;
+        mod::Module=@__MODULE__,
+    )
 
 Calculate the total domestic hot water (DHW) demand.
 
@@ -60,7 +64,7 @@ and `A_gfa` is the gross-floor area of the building.
 function calculate_total_dhw_demand(
     loads::Object,
     scope::ScopeData;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     mod.domestic_hot_water_demand_base_W(building_loads=loads) +
     scope.average_gross_floor_area_m2_per_building *
@@ -72,7 +76,7 @@ end
     calculate_total_internal_heat_loads(
         loads::Object,
         scope::ScopeData;
-        mod::Module = @__MODULE__
+        mod::Module=@__MODULE__,
     )
 
 Calculate the total internal heat gains.
@@ -93,7 +97,7 @@ and `A_gfa` is the gross-floor area of the building.
 function calculate_total_internal_heat_loads(
     loads::Object,
     scope::ScopeData;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     mod.internal_heat_loads_base_W(building_loads=loads) +
     scope.average_gross_floor_area_m2_per_building *

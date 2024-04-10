@@ -12,7 +12,7 @@ Contains functions for processing the properties of lumped-capacitance thermal n
         scope::ScopeData,
         envelope::EnvelopeData,
         loads::LoadsData;
-        mod::Module=@__MODULE__
+        mod::Module=@__MODULE__,
     )
 
 Map all `archetype` `building_nodes` to their [`BuildingNodeData`](@ref)s.
@@ -32,7 +32,7 @@ function create_building_node_network(
     scope::ScopeData,
     envelope::EnvelopeData,
     loads::LoadsData;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     merge(
         Dict{Object,BuildingNodeData}(
@@ -54,7 +54,7 @@ end
         scope::ScopeData,
         envelope::EnvelopeData,
         loads::LoadsData;
-        mod::Module=@__MODULE__
+        mod::Module=@__MODULE__,
     )
 
 Calculates the properties of a `node` using the provided `archetype`, `scope`, `envelope`, and `loads` data.
@@ -62,14 +62,17 @@ Calculates the properties of a `node` using the provided `archetype`, `scope`, `
 NOTE! The `mod` keyword changes from which Module data is accessed from,
 `@__MODULE__` by default.
 
-Aggregates the properties of the allocated structures according to their [structure\\_type\\_weight](@ref) parameters.
-The fenestration and ventilation properties are allocated based on [is\\_internal](@ref).
-Division of internal heat gains and solar heat gains between the interior air and the different structure types
-is based on the the relative surface areas of the different structure types
-and their [structure\\_type\\_weight](@ref)s, as well as the [internal\\_heat\\_gain\\_convective\\_fraction](@ref)
-for controlling the assumed convective vs radiative fractions of the internal gains.
-Solar gains through the windows are divided between the interior air and structures similar to internal heat gains,
-but use the [solar\\_heat\\_gain\\_convective\\_fraction](@ref) parameter for their convective vs radiative fraction instead.
+Aggregates the properties of the allocated structures according to their
+[structure\\_type\\_weight](@ref) parameters. The fenestration and ventilation
+properties are allocated based on [is\\_internal](@ref). Division of internal
+heat gains and solar heat gains between the interior air and the different
+structure types is based on the the relative surface areas of the different
+structure types and their [structure\\_type\\_weight](@ref)s, as well as the
+[internal\\_heat\\_gain\\_convective\\_fraction](@ref) for controlling the
+assumed convective vs radiative fractions of the internal gains. Solar gains
+through the windows are divided between the interior air and structures similar
+to internal heat gains, but use the [solar\\_heat\\_gain\\_convective\\_fraction](@ref)
+parameter for their convective vs radiative fraction instead.
 Solar heat gains through the opaque parts of the building envelope are applied
 entirely to the structures, as are envelope radiative sky heat losses.
 
@@ -98,7 +101,7 @@ function process_building_node(
     scope::ScopeData,
     envelope::EnvelopeData,
     loads::LoadsData;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     # Check if node is primary interior node or dhw node
     is_interior_node = mod.is_interior_node(building_node=node)
@@ -119,7 +122,7 @@ function process_building_node(
         scope.average_gross_floor_area_m2_per_building *
         mod.self_discharge_rate_gfa_scaling_W_m2K(building_node=node)
 
-    # Set temperature bounds with a potential override for indoor air temperature set points.
+    # Set point overrides for indoor air temperature.
     if (
         is_interior_node &&
         !isnothing(
@@ -281,7 +284,7 @@ end
         archetype::Object,
         scope::ScopeData,
         is_interior::Bool;
-        mod::Module=@__MODULE__
+        mod::Module=@__MODULE__,
     )
 
 Calculate the effective thermal mass of interior air and furniture on `node` in [J/K].
@@ -302,7 +305,7 @@ function calculate_interior_air_and_furniture_thermal_mass(
     archetype::Object,
     scope::ScopeData,
     is_interior::Bool;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     is_interior ?
     scope.average_gross_floor_area_m2_per_building *
@@ -317,7 +320,7 @@ end
         node::Object,
         scope::ScopeData,
         envelope::EnvelopeData;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
 
 Calculate the effective thermal mass of the structures on `node` in [J/K].
@@ -339,7 +342,7 @@ function calculate_structural_thermal_mass(
     node::Object,
     scope::ScopeData,
     envelope::EnvelopeData;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     reduce(
         +,
@@ -358,7 +361,7 @@ end
         scope::ScopeData,
         envelope::EnvelopeData,
         is_interior_node::Bool;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
 
 Calculate the total interior heat transfer coefficient of the structures in `node` in [W/K].
@@ -390,7 +393,7 @@ function calculate_structural_interior_heat_transfer_coefficient(
     scope::ScopeData,
     envelope::EnvelopeData,
     is_interior_node::Bool;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     is_interior_node ? 0.0 :
     sum(
@@ -413,7 +416,8 @@ end
         node::Object,
         scope::ScopeData,
         envelope::EnvelopeData,
-        is_interior_node::Bool
+        is_interior_node::Bool;
+        mod::Module=@__MODULE__,
     )
 
 Calculate the total exterior heat transfer coefficient of the structures in `node` in [W/K].
@@ -443,7 +447,7 @@ function calculate_structural_exterior_heat_transfer_coefficient(
     scope::ScopeData,
     envelope::EnvelopeData,
     is_interior_node::Bool;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     sum(
         1 / (
@@ -466,7 +470,7 @@ end
         node::Object,
         scope::ScopeData,
         envelope::EnvelopeData;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
 
 Calculate the total ground heat transfer coefficient of the structures in `node` in [W/K].
@@ -496,7 +500,7 @@ function calculate_structural_ground_heat_transfer_coefficient(
     node::Object,
     scope::ScopeData,
     envelope::EnvelopeData;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     (
         1 + min(
@@ -520,8 +524,9 @@ end
     calculate_window_heat_transfer_coefficient(
         scope::ScopeData,
         envelope::EnvelopeData,
-        is_interior_node::Bool
+        is_interior_node::Bool,
     )
+
 Calculate the total heat transfer coefficient for windows.
 
 Windows are assumed to transfer heat directly between the indoor air and the ambient air.
@@ -547,7 +552,7 @@ end
         archetype::Object,
         scope::ScopeData,
         is_interior_node::Bool;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
     
 Calculate ventilation and infiltration heat transfer coefficients with and without HRU.
@@ -556,8 +561,7 @@ NOTE! The `mod` keyword changes from which Module data is accessed from,
 `@__MODULE__` by default.
 
 Ventilation and infiltration are assumed to transfer heat directly between the
-interior and ambient air.
-Loosely based on EN ISO 52016-1:2017 6.5.10.1.
+interior and ambient air. Loosely based on EN ISO 52016-1:2017 6.5.10.1.
 ```math
 H_\\text{ven,n} = A_\\text{gfa} h_\\text{room} \\rho_\\text{air} \\frac{ (1 - \\eta_\\text{hru}) r_\\text{ven} + r_\\text{inf}}{3600}
 ```
@@ -576,7 +580,7 @@ function calculate_ventilation_and_infiltration_heat_transfer_coefficients(
     archetype::Object,
     scope::ScopeData,
     is_interior_node::Bool;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     is_interior_node ?
     Tuple(
@@ -595,7 +599,7 @@ end
         scope::ScopeData,
         envelope::EnvelopeData,
         is_interior_node::Bool;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
 
 Calculate total thermal bridge heat transfer coefficient.
@@ -614,7 +618,7 @@ where `ΔU_w,tb` is the [window\\_area\\_thermal\\_bridge\\_surcharge\\_W\\_m2K]
 `l_st` is the length of the linear thermal bridge of structure `st`,
 and `Ψ_st` is the [linear\\_thermal\\_bridges\\_W\\_mK](@ref).
 
-Note that ventilation and infiltration heat transfer is only applied to the
+Note that thermal bridge heat transfer is only applied to the
 [is\\_interior](@ref) node.
 """
 function calculate_total_thermal_bridge_heat_transfer_coefficient(
@@ -622,7 +626,7 @@ function calculate_total_thermal_bridge_heat_transfer_coefficient(
     scope::ScopeData,
     envelope::EnvelopeData,
     is_interior_node::Bool;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     is_interior_node ?
     (
@@ -640,10 +644,10 @@ end
 
 """
     calculate_convective_internal_heat_gains(
-        archetype::Object
+        archetype::Object,
         loads::LoadsData,
         is_interior_node::Bool;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
 
 Calculate the convective internal heat gains on the `node` in [W].
@@ -669,7 +673,7 @@ function calculate_convective_internal_heat_gains(
     archetype::Object,
     loads::LoadsData,
     is_interior_node::Bool;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     is_interior_node ?
     loads.internal_heat_gains_W *
@@ -682,9 +686,8 @@ end
         archetype::Object,
         node::Object,
         envelope::EnvelopeData,
-        loads::LoadsData,
-        total_structure_area_m2::Real;
-        mod::Module = @__MODULE__,
+        loads::LoadsData;
+        mod::Module=@__MODULE__,
     )
 
 Calculate the radiative internal heat gains on the `node` in [W].
@@ -713,7 +716,7 @@ function calculate_radiative_internal_heat_gains(
     node::Object,
     envelope::EnvelopeData,
     loads::LoadsData;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     loads.internal_heat_gains_W *
     (1 - mod.internal_heat_gain_convective_fraction(building_archetype=archetype)) *

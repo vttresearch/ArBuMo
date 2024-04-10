@@ -16,7 +16,7 @@ Contains functions for processing weather data.
         save_layouts::Bool=false,
         resampling::Int=5,
         mod::Module=@__MODULE__,
-        realization::Symbol=:realization
+        realization::Symbol=:realization,
     )
 
 Process weather data for the [`WeatherData`](@ref) constructor.
@@ -77,8 +77,8 @@ end
 """
     calculate_effective_ground_temperature(
         ambient_temp_K::SpineDataType;
-        coeff::Real = 1.7
-        realization::Symbol = :realization,
+        coeff::Real=1.7,
+        realization::Symbol=:realization,
     )
 
 Calculate the effective ground temperature based on the ambient temperature.
@@ -170,7 +170,7 @@ calculate_effective_ground_temperature(
         repeat::Bool=false,
         save_layouts::Bool=false,
         resampling::Int=5,
-        mod::Module=@__MODULE__
+        mod::Module=@__MODULE__,
     )
 
 Automatically process weather and preliminary demands data using `ArBuWe.py`.
@@ -204,7 +204,7 @@ function create_building_weather(
     repeat::Bool=false,
     save_layouts::Bool=false,
     resampling::Int=5,
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     # Fetch air node data, as well as any other nodes with set points.
     (air_node, air_node_data) =
@@ -363,8 +363,8 @@ end
 """
     _pyseries_to_timeseries(
         pyseries::PyCall.PyObject;
-        ignore_year::Bool = false,
-        repeat::Bool = false,
+        ignore_year::Bool=false,
+        repeat::Bool=false,
     )
 
 Convert `ArBuWe.py` output `pandas.Series` into a `TimeSeries`.

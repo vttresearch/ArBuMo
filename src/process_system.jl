@@ -11,7 +11,7 @@ Contains functions for calculating the properties of HVAC systems.
         process::Object,
         scope::ScopeData,
         weather::WeatherData;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
 
 Calculates the properties required for creating a [`BuildingProcessData`](@ref).
@@ -30,7 +30,7 @@ function process_building_system(
     process::Object,
     scope::ScopeData,
     weather::WeatherData;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     # Fetch system link nodes
     system_link_nodes =
@@ -78,7 +78,7 @@ end
         weather::WeatherData,
         COP_mode::Symbol,
         process::Object;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     )
 
 Calculate the potentially time-varying coefficient of performance.
@@ -106,7 +106,7 @@ function calculate_cop(
     weather::WeatherData,
     COP_mode::Symbol,
     process::Object;
-    mod::Module=@__MODULE__
+    mod::Module=@__MODULE__,
 )
     # Check if source and sink temperatures are defined, return 1.0 if not.
     if (

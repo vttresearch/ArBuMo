@@ -267,6 +267,7 @@ NOTE! The `mod` keyword changes from which Module data is accessed from
 by the constructor, `@__MODULE__` by default.
 
 This struct contains the following fields:
+- `archetype::Object`: The `building_archetype` used in constructing this `LoadsData`.
 - `domestic_hot_water_demand_W::SpineDataType`: Domestic hot water demand data in [W] for the building.
 - `internal_heat_gains_W::SpineDataType`: Total internal heat gains data in [W] for the building.
 
@@ -278,11 +279,7 @@ struct LoadsData <: BuildingDataType
     domestic_hot_water_demand_W::SpineDataType
     internal_heat_gains_W::SpineDataType
     """
-        LoadsData(
-            archetype::Object,
-            scope::ScopeData;
-            mod::Module = @__MODULE__,
-        )
+        LoadsData(archetype::Object, scope::ScopeData; mod::Module=@__MODULE__)
 
     Construct a new `LoadsData` for the `archetype` based on the given data structs.
     """
@@ -309,7 +306,7 @@ end
         scope::ScopeData,
         envelope::EnvelopeData,
         loads::LoadsData;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     ) <: BuildingDataType
 
 Contains data about how the structures and systems are aggregated into nodes for the lumped-capacitance thermal model.
@@ -326,7 +323,7 @@ NOTE! The `mod` keyword changes from which Module data is accessed from,
 This struct contains the following fields:
 - `building_node::Object`: The `building_node` definition used for this `BuildingNodeData`.
 - `heating_set_point_K`: The heating set point for this node [K].
-- `cooling_set_point_K`: 
+- `cooling_set_point_K`: The cooling set point for this node [K].
 - `thermal_mass_base_J_K::SpineDataType`: Optional user-defined base effective thermal mass in [J/K] of the temperature node.
 - `thermal_mass_gfa_scaled_J_K::SpineDataType`: Optional user-defined gross-floor-area-scaling effective thermal mass in [J/m2K] of the temperature node.
 - `thermal_mass_interior_air_and_furniture_J_K::Float64`: The effective thermal mass contribution of the interior air and furniture on this temperature node.
@@ -347,8 +344,8 @@ This struct contains the following fields:
 - `domestic_hot_water_demand_W::SpineDataType`: Domestic hot water demand in [W] on this node.
 - `internal_heat_gains_air_W::SpineDataType`: Convective part of internal heat gains on this node in [W].
 - `internal_heat_gains_structures_W::SpineDataType`: Radiative part of internal heat gains on this node in [W].
-- `radiative_envelope_sky_losses_W::SpineDataType`: Radiative heat losses to the sky from the exposed parts of the building envelope [W].
 - `is_interior_node::Bool`: Flag indicating whether this node is the primary indoor air node.
+- `is_dhw_node::Bool`: Flag indicating whether this node is the primary domestic hot water node.
 
 The constructor calls the [`process_building_node`](@ref) function,
 and checks the values are sensible.
@@ -387,7 +384,7 @@ struct BuildingNodeData <: BuildingDataType
             scope::ScopeData,
             envelope::EnvelopeData,
             loads::LoadsData;
-            mod::Module = @__MODULE__,
+            mod::Module=@__MODULE__,
         )
 
     Construct a new `BuildingNodeData` for `archetype` and `node`.
@@ -398,7 +395,7 @@ struct BuildingNodeData <: BuildingDataType
         scope::ScopeData,
         envelope::EnvelopeData,
         loads::LoadsData;
-        mod::Module=@__MODULE__
+        mod::Module=@__MODULE__,
     )
         BuildingNodeData(
             archetype,
@@ -451,7 +448,7 @@ BuildingNodeNetwork = Dict{Object,BuildingNodeData}
         save_layouts::Bool=false,
         resampling::Int=5,
         mod::Module=@__MODULE__,
-        realization::Symbol=:realization
+        realization::Symbol=:realization,
     ) <: BuildingDataType
 
 Process and store the weather data for further calculations.
@@ -531,7 +528,7 @@ end
         process::Object,
         scope::ScopeData,
         weather::WeatherData;
-        mod::Module = @__MODULE__,
+        mod::Module=@__MODULE__,
     ) <: BuildingDataType
 
 Aggregate building systems into processes for the lumped-capacitance thermal model.
@@ -544,6 +541,7 @@ NOTE! The `mod` keyword changes from which Module data is accessed from,
 `@__MODULE__` by default.
 
 This struct contains the following fields:
+- `archetype::Object`: The `building_archetype` definition for this `BuildingProcessData`.
 - `building_process::Object`: The `building_process` definition for this `BuildingProcessData`.
 - `system_link_nodes::Vector{Object}`: The energy system nodes used to connect the buildings to the energy system at large.
 - `coefficient_of_performance::SpineDataType`: The coefficient of performance of the process.
@@ -579,7 +577,7 @@ struct BuildingProcessData <: BuildingDataType
         process::Object,
         scope::ScopeData,
         weather::WeatherData;
-        mod::Module=@__MODULE__
+        mod::Module=@__MODULE__,
     )
         new(
             archetype,
@@ -592,14 +590,16 @@ end
 
 """
     AbstractNode(
+        archetype::Object,
+        scope::ScopeData,
+        envelope::EnvelopeData,
         building_node_network::BuildingNodeNetwork,
-        node::Object,
         weather::WeatherData,
+        node::Object;
+        mod::Module=@__MODULE__,
     ) <: BuildingDataType
 
-Contain parameters defining a `node` in a large-scale-energy-system-model-agnostic manner.
-
-TODO: Revise documentation, rename to FlexibilityNode?
+Contain parameters defining a `node` in a large-scale-energy-system-model-compatible manner.
 
 Essentially, a `node` is a point in a commodity network where commodity balance is observed.
 `nodes` can have a *state*, which represents accumulated commodities at the point.
@@ -610,14 +610,17 @@ uncontrollable external influence affecting the `node`,
 e.g. commodity demand or gains.
 
 This struct contains the following fields:
+- `archetype::Object`: The `building_archetype` definition this `AbstractNode` uses.
 - `building_node::Object`: The `building_node` definition this `AbstractNode` depicts.
+- `heating_set_point_K::Union{Nothing,SpineDataType}`: The heating set point for this node if any [K].
+- `cooling_set_point_K::Union{Nothing,SpineDataType}`: The cooling set point for this node if any [K].
+- `maximum_temperature_K::SpineDataType`: Maximum permitted temperature of the node in [K].
+- `minimum_temperature_K::SpineDataType`: Minimum permitted temperature of the node in [K].
 - `thermal_mass_Wh_K::SpineDataType`: The effective thermal mass of this node in [Wh/K].
 - `self_discharge_coefficient_W_K::SpineDataType`: The self-discharge coefficient in [W/K] from this node.
 - `heat_transfer_coefficients_W_K::Dict{Object,SpineDataType}`: The heat transfer coefficients between this node and other nodes in [W/K].
-- `maximum_temperature_K::SpineDataType`: Maximum permitted temperature of the node in [K].
-- `minimum_temperature_K::SpineDataType`: Minimum permitted temperature of the node in [K].
 - `is_interior_node::Bool`: A flag indicating whether this node is the primary interior air node.
-- `is_dhw::Bool`: A flag indicating whether this node is the primary DHW node.
+- `is_dhw_node::Bool`: A flag indicating whether this node is the primary DHW node.
 
 The constructor calls the [`process_abstract_node`](@ref) function.
 """
@@ -633,7 +636,7 @@ struct AbstractNode <: BuildingDataType
     heat_transfer_coefficients_W_K::Dict{Object,SpineDataType}
     external_load_W::SpineDataType
     is_interior_node::Bool
-    is_dhw::Bool
+    is_dhw_node::Bool
     """
         AbstractNode(
             building_node_network::BuildingNodeNetwork,
@@ -649,7 +652,7 @@ struct AbstractNode <: BuildingDataType
         building_node_network::BuildingNodeNetwork,
         weather::WeatherData,
         node::Object;
-        mod::Module=@__MODULE__
+        mod::Module=@__MODULE__,
     )
         new(
             archetype,
@@ -678,10 +681,10 @@ AbstractNodeNetwork = Dict{Object,AbstractNode}
 
 """
     ArchetypeBuilding(
-        archetype::Object,
-        scope_data::ScopeData;
+        archetype::Object;
         save_layouts::Bool=false,
-        mod::Module=@__MODULE__
+        mod::Module=@__MODULE__,
+        realization::Symbol=:realization,
     )
 
 Contains data representing a single archetype building.
@@ -712,11 +715,10 @@ This struct contains the following fields:
 
 The constructor performs the following steps:
 1. Fetch and create the corresponding [`ScopeData`](@ref).
-2. Fetch and create the corresponding [`WeatherData`](@ref).
-3. Form the [`EnvelopeData`](@ref).
-4. Process the [`LoadsData`](@ref).
-5. Process the temperature nodes using the [`create_building_node_network`](@ref) function.
-6. Process the [`WeatherData`](@ref).
+2. Form the [`EnvelopeData`](@ref).
+3. Process the [`LoadsData`](@ref).
+4. Process the temperature nodes using the [`create_building_node_network`](@ref) function.
+5. Process the [`WeatherData`](@ref).
 6. Create the [`BuildingProcessData`](@ref) for the HVAC system components.
 7. Process the abstract temperature nodes using the [`create_abstract_node_network`](@ref) function based on the [`BuildingNodeNetwork`](@ref).
 8. Construct the final `ArchetypeBuilding`.
@@ -847,19 +849,12 @@ abstract type ModelInput end
 """
     ArchetypeBuildingResults(
         archetype::ArchetypeBuilding;
-        free_dynamics::Bool = false,
-        initial_temperatures::Union{Nothing,Dict{Object,Float64}} = nothing,
         mod::Module = @__MODULE__,
         realization::Symbol = :realization,
     ) <: BuildingDataType
 
 Store the temperature and HVAC demand results for the `archetype` building.
 
-TODO: Revise documentation!
-
-The `free_dynamics` keyword can be used to force the calculations to ignore
-heating/cooling set points, while the `initial_temperatures` keyword
-can be used to fix the initial temperatures for the simulation.
 The `realization` keyword is used to select the true data from potentially
 stochastic input.
 
@@ -868,14 +863,16 @@ by the constructor, `@__MODULE__` by default.
 
 This struct contains the following fields:
 - `archetype::ArchetypeBuilding`: The [`ArchetypeBuilding`](@ref) for which the results were calculated.
-- `free_dynamics::Bool`: Flag whether or not to ignore set point temperatures for free temperature dynamics.
-- `initial_temperatures::Dict{Object,Float64}`: The initial temperatures used for the results.
-- `temperatures::Dict{Object,SpineDataType}`: The resulting node temperatures in [K].
-- `hvac_demand::Dict{Object,SpineDataType}`: The HVAC demand required to keep the temperature nodes within the permitted limits for each node.
-- `hvac_consumption::Dict{Object,SpineDataType}`: The estimated energy consumption of the HVAC equipment required to fulfill the HVAC demand.
+- `temperatures_K::Dict{Object,SpineDataType}`: The resulting node temperatures in [K].
+- `heating_demand_kW::Dict{Object,SpineDataType}`: The heating demand required to keep the temperature nodes at or above the heating set point for each node [kW].
+- `cooling_demand_kW::Dict{Object,SpineDataType}`: The cooling demand required to keep the temperature nodes at or below the cooling set point for each node [kW].
+- `hvac_consumption_kW::Dict{Object,SpineDataType}`: The estimated energy consumption of the HVAC equipment required to fulfill the heating and cooling demands [kW].
+- `heating_correction_W::SpineDataType`: The heating demand correction applied on top of the preliminary demand from ArBuWe.py based on the dynamic simulation.
+- `cooling_correction_W::SpineDataType`: The cooling demand correction applied on top of the preliminary demand from ArBuWe.py based on the dynamic simulation.
+- `heating_to_cooling_ratio::SpineDataType`: Ratio of final heating to cooling demand, for debug purposes.
 
 The constructor performs the following steps:
-1. Solve the initial temperatures, node temperatures, and HVAC demand using the [`solve_heating_demand`](@ref) function.
+1. Solve the node temperatures and heating/cooling demands using the [`solve_heating_demand`](@ref) function.
 2. Solve the HVAC consumption using the [`solve_consumption`](@ref) function.
 3. Return the `ArchetypeBuildingResults` using the calculated values.
 """
