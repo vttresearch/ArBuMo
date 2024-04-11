@@ -30,7 +30,7 @@ include("export.jl")
 include("main.jl")
 include("util.jl")
 
-# Exports for the `process_archetype_buildings.jl` main program
+# Exports for the `run_ArBuMo.jl` main program
 export using_spinedb,
     run_input_data_tests,
     archetype_building_processing,

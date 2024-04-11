@@ -1,7 +1,7 @@
 #=
     main.jl
 
-Contains functions for the main program `process_archetype_buildings.jl`.
+Contains functions for the main program `run_ArBuMo.jl`.
 =#
 
 """

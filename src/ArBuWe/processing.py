@@ -261,14 +261,14 @@ def preprocess_weather(cutout, external_shading_coefficient):
     """
     Preprocesses weather data for heating and cooling demand calculations.
 
-    This function calculates the aggregated weather quantities
+    This function calculates the weather quantities
     required for the heating/cooling demand calculations.
     Note that the returned `effective_irradiation` contains the
     effective total irradiation for horizontal and vertical surfaces
     respectively. These are direction-agnostic, and designed to be used
     with the full horizontal/vertical envelope surface areas respectively.
     For the vertical surfaces, we're assuming that
-    they are distributed equally to all directions *(like a circle)*.
+    they are distributed equally to all directions *(like a cylinder)*.
 
     The ambient temperatures are obtained directly from the atlite cutout,
     but the total effective irradiation `I_eff` is calculated as:
