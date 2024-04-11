@@ -33,7 +33,7 @@ as well as the lumped-capacitance thermal models.
 ## Key contents
 
 1. `archetype_definitions.json`, a template for the Spine data structure required for defining the archetype buildings.
-2. `process_archetype_buildings.jl`, the main program file for archetype building processing using Spine Toolbox.
+2. `run_ArBuMo.jl`, the main program file for archetype building processing using Spine Toolbox.
 3. `process_archetype_buildings.json`, the [Spine Toolbox](https://github.com/Spine-project/Spine-Toolbox) tool specification for the main program above.
 4. `testscript.jl`, a testing script/tutorial for using this module.
 5. `testscript.ipynb`, a testing notebook/tutorial for using the `ArBuWe` sub-module.
