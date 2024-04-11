@@ -58,7 +58,6 @@ This section lists all the internal types and functions not exported by the modu
 ```@docs
 ArBuMo.AbstractNode
 ArBuMo.AbstractNodeNetwork
-ArBuMo.AbstractProcess
 ArBuMo.BuildingDataType
 ArBuMo.BuildingNodeData
 ArBuMo.BuildingNodeNetwork

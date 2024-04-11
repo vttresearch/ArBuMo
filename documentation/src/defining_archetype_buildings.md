@@ -21,13 +21,12 @@ using the appropriate relationship classes:
 - [building\_archetype\_\_building\_fabrics](@ref): Defines one [building\_fabrics](@ref) for the [building\_archetype](@ref). Determines how the different types of structures and the indoor air and furniture are aggregated into a lumped-capacitance thermal model depicting the archetype.
 - [building\_archetype\_\_building\_systems](@ref): Defines one [building\_systems](@ref) for the [building\_archetype](@ref). Determines the HVAC system of the archetype.
 - [building\_archetype\_\_building\_loads](@ref): Defines one [building\_loads](@ref) for the [building\_archetype](@ref). Determines the internal loads and domestic hot water demand for the archetype.
-- [building\_archetype\_\_building\_weather](@ref): Defines which [building\_weather](@ref) to use for the [building\_archetype](@ref). If left undefined, the [ArchetypeBuildingWeather.py](@ref) sub-module will be used to try and automatically fetch and process weather data based on the [building\_scope](@ref) and other parameters.
 - [building\_archetype\_\_system\_link\_node](@ref): Allows customizable definition of nodes intended to be used as the connection points between the lumped-capacitance thermal models and the overarching large-scale energy system models.
 
 The [building\_archetype](@ref) objects also houses most of the parameters
 defining assumptions regarding the archetype and how it's modelled.
 The only mandatory parameters are the [weather\_start](@ref) and [weather\_end](@ref),
-which are required for automatic weather data processing using [ArchetypeBuildingWeather.py](@ref),
+which are required for automatic weather data processing using [ArBuWe.py](@ref),
 while the rest of the parameters have set default values that kick in if not
 specified by the user.
 For example, the assumed shape of the building envelope can be tweaked using
@@ -45,7 +44,7 @@ by the main program described by the [Overview of the workflow](@ref) section.
 
 ## The `building_scope` definition
 
-Arguably the second-most important object class in the definiton,
+The second-most important object class in the definiton,
 as each [building\_scope](@ref) object describes how to aggregate the
 underlying building stock statistics to calculate the properties of a
 synthetic average archetype building.
@@ -117,12 +116,12 @@ classes:
 The [building\_node](@ref) object class also contains a few important parameters.
 A comperehensive list can be found in the [Object parameters](@ref) section,
 but the most important ones are:
-- [domestic\_hot\_water\_demand\_weight](@ref): Defines the share of the total domestic hot water demand attributed to this [building\_node](@ref). Typically set to either zero or one, but e.g. if the DHW tank is modelled using several nodes, tweaking the value might be necessary.
-- [interior\_air\_and\_furniture\_weight](@ref): Defines the share of the total interior air and furniture attributed to this [building\_node](@ref), affecting its effective thermal mass, heat transfer coefficients due to ventilation/infiltration and windows, etc. Typically set to either zero or one, but if multi-zone modelling is attempted *(not recommended)*, tweaking the value might be necessary.
-- [maximum\_permitted\_temperature\_K](@ref) and [minimum\_permitted\_temperature\_K](@ref) are used to set the temperature limits for the node.
+- [is\_domestic\_hot\_water\_node](@ref): A boolean flag indicating whether this[building\_node](@ref) represents a DHW tank.
+- [is\_interior\_node](@ref): A boolean flag indicating whether this [building\_node](@ref) includes the interior air, affecting its effective thermal mass, heat transfer coefficients due to ventilation/infiltration and windows, etc.
+- [heating\_set\_point\_K](@ref) and [cooling\_set\_point\_K](@ref) are used to set the desired temperature set points for the node.
 
 Ultimately, each [building\_node](@ref) is processed into a [`BuildingNodeData`](@ref)
-*(and an [`AbstractNode`](@ref) for energy system model export)*
+*(and an [`AbstractNode`](@ref) for calculations and energy system model export)*
 by the main program described by the [Overview of the workflow](@ref) section.
 
 
@@ -146,7 +145,7 @@ The [building\_process](@ref) objects are used to define energy transfer/transfo
 processes in the [building\_systems](@ref), e.g. direct electric resistance heaters
 or heat pumps. The important relationship classes for the definitions are:
 - [building\_process\_\_direction\_\_building\_node](@ref): Defines how [building\_process](@ref)es interact with the [building\_node](@ref)s, and houses their maximum power flow parameters.
-- [building\_systems\_\_building\_process](@ref): Defines [building\_process](@ref)s parts of this [building\_systems](@ref). Also houses the maximum power flow parameters for the process.
+- [building\_systems\_\_building\_process](@ref): Defines [building\_process](@ref)s parts of this [building\_systems](@ref).
 
 The [building\_process](@ref) object class also contains a few important parameters,
 mostly due to the potential complexity of different heat pump systems.
@@ -157,9 +156,9 @@ but the most important ones are:
 See the [`ArBuMo.calculate_cop`](@ref) function for more details on how weather-dependent
 COPs are modelled.
 
-Ultimately, each [building\_process](@ref) is processed into a [`BuildingProcessData`](@ref)
-*([`AbstractProcess`](@ref) for the energy sysem model export)*
-by the main program described by the [Overview of the workflow](@ref) section.
+Ultimately, each [building\_process](@ref) is processed into a
+[`BuildingProcessData`](@ref) by the main program described by the
+[Overview of the workflow](@ref) section.
 
 
 ## The `building_loads` definition

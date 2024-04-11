@@ -13,16 +13,17 @@ Overall, the structure of this section more or less follows the
 [`ArchetypeBuilding`](@ref) constructor,
 as it is the key struct containing and calculating all the information 
 necessary for modelling an archetype building.
-The [Process `ScopeData` structs](@ref), [Process `WeatherData` structs](@ref),
-and [ArchetypeBuildingWeather.py](@ref) sections already sufficiently explain
-the handling of the building stock statistics and weather data as input,
+The [Process `ScopeData` structs](@ref) section already sufficiently explain
+the handling of the building stock statistics as input,
 so we'll start with [Forming the building envelope](@ref) instead.
 Next, we proceed to [Preparing the building loads](@ref),
-namely the internal heat gains and solar heat gains for the archetype building.
+namely the internal heat gains for the archetype building.
 Then, now that we know the dimensions of the building envelope and the
 external loads on the building, we can proceed with
 [Calculating the properties of the lumped-capacitance thermal nodes](@ref),
 as well as with [Calculating the properties of the HVAC equipment](@ref).
+Here, [ArBuWe.py](@ref) is used for automatic processing of weather data
+required for calculating the heating and cooling demand.
 Finally, `ArBuMo.jl` also includes a very simple rule-based
 method for [Solving the baseline heating demand and HVAC equipment consumption](@ref).
 While the main goal of this module is to provide input data for optimization
@@ -66,8 +67,8 @@ The next step we need to do before we can really start forming
 the lumped-capacitance thermal nodes is to determine the total external heat
 loads for the archetype building.
 Essentially, this means forming the [`LoadsData`](@ref) struct,
-containing the total domestic hot water demand, internal heat gains,
-as well as solar heat gains for the building.
+containing the total domestic hot water demand and internal heat gains
+for the building.
 
 The total building loads for the [`LoadsData`](@ref) are calculated by the
 [`ArBuMo.process_building_loads`](@ref) function,
@@ -79,6 +80,9 @@ See the [`ArBuMo.calculate_total_dhw_demand`](@ref)
 and [`ArBuMo.calculate_total_internal_heat_loads`](@ref)
 for the exact formulations.
 
+
+### Calculating the solar heat gains.
+
 Calculating the total solar gains for the buildings is more complicated,
 but it is still heavily simplified by the following key assumptions in line with the 
 [EN ISO 52016-1:2017](https://www.iso.org/obp/ui/#iso:std:iso:52016:-1:ed-1:v1:en) standard:
@@ -86,26 +90,24 @@ but it is still heavily simplified by the following key assumptions in line with
 - **Solar properties of windows as well as external shading are assumed to be independent of the solar angle.**
 - **Surface heat transfer coefficients and apparent sky to ambient air temperature difference are approximated as time-invariant averages.**
 - **Exterior surface of envelope structures is assumed to have negligible thermal mass for simplicity.**
-- **For the purpose of solar heat gains, the building is assumed to aligned with the cardinal directions.**
+- **For the purpose of solar heat gains, the vertical envelope surface area of the building is assumed to be equidistributed towards all directions (as if the building was a cylinder).**
 
 Solar gains through the windows are impacted by the window properties in
-[`ScopeData`](@ref), the solar irradiation in [`WeatherData`](@ref),
-the assumed [window\_non\_perpendicularity\_correction\_factor](@ref),
+[`ScopeData`](@ref), the assumed [window\_non\_perpendicularity\_correction\_factor](@ref),
 as well as the estimated [external\_shading\_coefficient](@ref) and
-[window\_area\_distribution\_towards\_cardinal\_directions](@ref).
-See the [`ArBuMo.calculate_window_solar_gains`](@ref)
-for the exact formulation.
+[window\_area\_distribution](@ref). See the
+[`ArBuMo.calculate_window_solar_gains`](@ref) for the exact formulation.
 
 Meanwhile, the solar gains through the building envelope are impacted by the
-[exterior\_resistance\_m2K\_W](@ref) and [external\_U\_value\_to\_ambient\_air\_W\_m2K](@ref)
+[exterior\_resistance\_m2K\_W](@ref) and
+[external\_U\_value\_to\_ambient\_air\_W\_m2K](@ref)
 of each structure, their surface areas as recored in [`EnvelopeData`](@ref),
 The assumed [average\_structural\_solar\_absorption\_coefficient](@ref),
-the solar irradiation in [`WeatherData`](@ref),
 as well as the estimated [external\_shading\_coefficient](@ref).
 The radiative envelope sky heat losses are also heavily simplified,
 depending again on the surface properties of the structures,
-as well as assumed sky view factors,
-the assumed [external\_radiative\_surface\_heat\_transfer\_coefficient\_W\_m2K](@ref),
+as well as assumed sky view factors, the assumed
+[external\_radiative\_surface\_heat\_transfer\_coefficient\_W\_m2K](@ref),
 and the assumed [average\_apparent\_sky\_temperature\_difference\_K](@ref).
 See the [`ArBuMo.calculate_total_envelope_solar_gains`](@ref)
 and [`ArBuMo.calculate_total_envelope_radiative_sky_losses`](@ref),
@@ -135,9 +137,9 @@ The processing of the thermal nodes relies entirely on
 [The `building_node` definition](@ref), as it contains the information about
 which [structure\_type](@ref)s are included in the node,
 whether the node represents the interior air
-*(via the [interior\_air\_and\_furniture\_weight](@ref) parameter)*,
+*(via the [is\_interior\_node](@ref) parameter)*,
 or domestic hot water demand
-*(via the [domestic\_hot\_water\_demand\_weight](@ref) parameter)*.
+*(via the [is\_domestic\_hot\_water\_node](@ref) parameter)*.
 The procedure for calculating the properties of each lumped-capacitance thermal
 node goes something like this:
 
@@ -148,9 +150,10 @@ node goes something like this:
 3. Calculate the total heat transfer coefficient between this node and the ambient air and/or ground.
     - For structural nodes, this is again based on the properties and dimensions of the included structures.
     - For the interior air node, this is includes the impact of windows, ventilation and infiltration, and thermal bridges.
-4. Calculate the total heat gains on this node, including internal and solar heat gains.
+4. Calculate the internal heat gains on this node.
     - The assumed convective fraction of the heat gains are applied to the interior air node, while the assumed radiative fraction of the heat gains are distributed among the structural nodes based on their relative total structural surface areas.
     - Domestic hot water demand is applied as a "negative heat gain" on the domestic hot water node.
+5. Calculate the weather data interactions _(ambient/ground heat transfer, solar gains)_ when processing the [`BuildingNodeData`](@ref) to [`AbstractNode`](@ref).
 
 There are a few important simplifications in the above [`BuildingNodeData`](@ref) processing:
  - **Windows are treated separate from the rest of the structures, assumed to have negligible thermal mass, and act as a direct thermal resistance between the interior air and ambient air nodes.**
@@ -184,10 +187,6 @@ Overall, the process is pretty simple, roughly consisting of the following steps
 For the exact formulations, see the documentation for the
 [`ArBuMo.process_building_system`](@ref) function and the
 functions linked therein.
-See the [Processing HVAC equipment into `AbstractProcess`es](@ref) section for
-how the data is adapted for use with large-scale energy system models,
-which also happens to simplify
-[Solving the baseline heating demand and HVAC equipment consumption](@ref).
 
 
 ## Solving the baseline heating demand and HVAC equipment consumption
@@ -203,10 +202,11 @@ simulation of heating and cooling of the created [`ArchetypeBuilding`](@ref)s.
 Storing and processing the heating/cooling demand and HVAC equipment energy
 consumption results are handled via the [`ArchetypeBuildingResults`](@ref)
 struct.
-The actual calculations are performed in two main steps:
+The actual calculations are performed in three main steps:
 
-1. Solve initial temperatures *(unless explicitly provided)*, node temperatures, and nodal HVAC demand using the [`ArBuMo.solve_heating_demand`](@ref) function.
-2. Solve the HVAC equipment consumption per process based on the above nodal demands using the [`ArBuMo.solve_consumption`](@ref) function.
+1. Solve the preliminary heating/cooling demand as part of the [`ArBuWe.py`](@ref) weather data processing.
+2. Solve initial temperatures, node temperatures, and nodal heating/cooling demand corrections using the [`ArBuMo.solve_heating_demand`](@ref) function.
+3. Solve the HVAC equipment consumption per process based on the corrected nodal demands using the [`ArBuMo.solve_consumption`](@ref) function.
 
 For readers interested in the actual implementation and technical details,
 please refer to the documentation of the above functions,
@@ -214,6 +214,10 @@ and the functions linked therein.
 However, there are a few things worth noting about how the heating/cooling demand
 and HVAC equipment consumption are solved:
 
+ - **The heating and cooling demand calculations are essentially performed in two steps to try and better account for geospatial weather variations.**
+    - First, preliminary heating/cooling demands for the interior air node are calculated by [ArBuWe.py](@ref) as steady-state demands at the given set-points on `xarray` level and summed together to account for geospatial weather variations.
+    - Then, corrections to the preliminary heating and cooling demand are calculated based on the estimated node temperatures from the RBC-simulations accounting for thermal mass dynamics using _aggregated_ weather.
+    - Ideally, the full dynamic simulations for the heating/cooling demand would be performed on the `xarray` level and only aggregated afterwards, but I'm uncertain if I would be able to implement such calculations in a practical manner.
  - **If not explicitly provided, lumped-capacitance thermal node initial temperatures are solved by starting the temperatures at their lowest permitted temperatures, and repeatedly solving the first 24-hours, replacing the initial temperatures with the ones on hour 24 until the temperatures at the beginning and end of the simulated 24-hour period converge.**
  - **The simulation of the heating/cooling demand uses implicit Euler discretization of the lumped-capacitance thermal node energy balance equations.**
      - This is mainly done to conform with the energy balance equations of [Backbone](https://cris.vtt.fi/en/publications/backbone) and [SpineOpt](https://github.com/Spine-project/SpineOpt.jl), as they both also use implicit Euler discretization for their energy balance constraints.

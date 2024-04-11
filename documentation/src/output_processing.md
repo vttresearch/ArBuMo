@@ -1,5 +1,8 @@
 # Input data processing for large-scale energy system modelling frameworks
 
+!!! note 
+    Input data interfaces to `SpineOpt` and `Backbone` are yet to be implemented, as the full investment formulation requires new functionality to be added to said models first.
+
 This section aims to provide brief overviews of adapting the archetype building model
 for use in large-scale energy system modelling frameworks like
 [Backbone](https://cris.vtt.fi/en/publications/backbone)
@@ -7,15 +10,12 @@ and [SpineOpt](https://github.com/Spine-project/SpineOpt.jl).
 In general, such frameworks are rarely designed with building modelling
 in mind, and as such don't support the building-specific data stored within
 [`ArchetypeBuilding`](@ref) and related `struct`s without further processing.
-Perhaps the most important step is to understand the roles of
-[`AbstractNode`](@ref) and [`AbstractProcess`](@ref) as opposed to their
-detailed counterparts [`BuildingNodeData`](@ref) and [`BuildingProcessData`](@ref).
 
-The following [Processing thermal nodes into `AbstractNode`s](@ref)
-and [Processing HVAC equipment into `AbstractProcess`es](@ref) sections
-explain the aggregation and abstraction of building level data for energy-system-scale,
-while the  [Backbone input data processing](@ref) and [SpineOpt input data processing](@ref)
-sections focus on the processing workflows of their respective models models.
+The following [Processing thermal nodes into `AbstractNode`s](@ref) section
+explains the aggregation and abstraction of building level data for
+energy-system-scale, while the  [Backbone input data processing](@ref) and
+[SpineOpt input data processing](@ref) sections focus on the processing
+workflows of their respective models models.
 
 
 ### Processing thermal nodes into `AbstractNode`s
