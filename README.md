@@ -19,22 +19,18 @@ as implementing investment modelling options requires reformulating the building
 as well as the lumped-capacitance thermal models.
 
 >[!IMPORTANT]
->This repository is currently undergoing major changes, and a lot of the information in this README
->and in the documentation in particular is likely to be outdated.
->Hopefully I'll be done with most of the revisions sometime in late Spring 2024,
->and can focus on making sure all presented information is up to date.
-
->[!IMPORTANT]
->2024-02-06: Enabling investment modelling options for the aggregated building stock heating/cooling demand modelling requires revising the modelling approach,
->making it less suitable for modelling individual buildings. Future developments *(and breaking changes)* will take place in the forked
->[ArBuMo](https://github.com/vttresearch/ArBuMo) repository for now, making this repository less likely to receive further updates.
+>2024-04-12: The [Backbone](https://cris.vtt.fi/en/publications/backbone)
+>and [SpineOpt](https://github.com/Spine-project/SpineOpt.jl) are currently broken,
+>as the simplest investment formulation requires new features to be implemented
+>in both models. SpineOpt will likely receive a working interface first, but
+>I'm unable to estimate when that will be for now.
 
 
 ## Key contents
 
 1. `archetype_definitions.json`, a template for the Spine data structure required for defining the archetype buildings.
 2. `run_ArBuMo.jl`, the main program file for archetype building processing using Spine Toolbox.
-3. `process_archetype_buildings.json`, the [Spine Toolbox](https://github.com/Spine-project/Spine-Toolbox) tool specification for the main program above.
+3. `run_ArBuMo.json`, the [Spine Toolbox](https://github.com/Spine-project/Spine-Toolbox) tool specification for the main program above.
 4. `testscript.jl`, a testing script/tutorial for using this module.
 5. `testscript.ipynb`, a testing notebook/tutorial for using the `ArBuWe` sub-module.
 6. `src/ArBuMo.jl`, the main Julia module file.
@@ -45,10 +41,6 @@ as well as the lumped-capacitance thermal models.
 
 
 ## ArBuWe.py
-
->[!IMPORTANT]
->The weather data processing will need to be heavily revised in order to enable investment modelling options.
->Everything explained below is subject to major changes.
 
 A Python sub-module for processing weather data.
 
@@ -90,7 +82,7 @@ with the following rough steps:
 1. Create a Spine Datastore with building stock data processed by e.g. [FinnishBuildingStockData.jl](https://github.com/vttresearch/FinnishBuildingStockData).
 2. Import `archetype_definitions.json` on top of the processed building stock data.
 3. Define the desired `building_archetype` objects, and connect them to the relevant `building_fabrics`, `building_loads`, `building_scope`, and `building_system` objects.
-4. Use the `process_archetype_buildings.json` tool to process the data and definitions into the desired energy system model input.
+4. Use the `run_ArBuMo.json` tool to process the data and definitions into the desired energy system model input.
 
 In case you need to familiarize yourself with the inner workings of this module,
 see `testscript.jl` for examples on how to use the `ArBuMo.jl`,
@@ -102,8 +94,7 @@ data used via the module within the `data/` folder in the repository for the mom
 ## Documentation
 
 >[!NOTE]
->Online documentation is temporarily offline, as there are major reformulations pending to enable investment modelling options.
->The documentation is likely not up to date as a result!
+>As this module is still a work in progress, I haven't bothered to set up online documentation yet.
 
 In order to build and read the documentation locally,
 start a Julia REPL from the root folder of this module and perform the following steps:

@@ -13,7 +13,7 @@ m = ArBuMo
 # Check that the necessary input arguments are provided
 if length(ARGS) < 1
     @error """
-    `process_archetype_buildings` requires at least the following input arguments:
+    `run_ArBuMo` requires at least the following input arguments:
     1. The `url` to a Spine Datastore containing the required input data and archetype building definitions.
 
     Furthermore, the following optional keyword arguments can be provided:
