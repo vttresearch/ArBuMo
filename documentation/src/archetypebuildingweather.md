@@ -35,12 +35,12 @@ raster data:
 ## High-level description of the weather data aggregation, the `aggregate_demand_and_weather` function
 
 As explained by the [Process `WeatherData` structs](@ref) section,
-the [`process_weather`](@ref) function is called to attempt to automatically
+the [`ArBuMo.process_weather`](@ref) function is called to attempt to automatically
 fetch and aggregate the desired weather data based on
 [The `building_scope` definition](@ref).
-Under the hood, the [`process_weather`](@ref) performs the following steps:
-1. Call [`create_building_weather`](@ref) to do the preliminary heating/cooling demand and weather aggregation calculations.
-2. Call [`calculate_effective_ground_temperature`](@ref) to calculate the aggregated average effective ground temperature based on the aggregated ambient air temperature.
+Under the hood, the [`ArBuMo.process_weather`](@ref) performs the following steps:
+1. Call [`ArBuMo.create_building_weather`](@ref) to do the preliminary heating/cooling demand and weather aggregation calculations.
+2. Call [`ArBuMo.calculate_effective_ground_temperature`](@ref) to calculate the aggregated average effective ground temperature based on the aggregated ambient air temperature.
 
 The [`create_building_weather`](@ref) function is the main Julia function for
 the weather data aggregation, and essentially just prepares input arguments for

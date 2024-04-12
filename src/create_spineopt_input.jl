@@ -12,7 +12,7 @@ Create and store the input data for the SpineOpt energy system model.
 
 Contains the following fields:
 - `node::ObjectClass`: Contains all the `node`s in the building models, created based on [`AbstractNode`](@ref)s.
-- `unit::ObjectClass`: Contains all the `unit`s in the building models, created based on [`BuildingtProcessData`](@ref)es.
+- `unit::ObjectClass`: Contains all the `unit`s in the building models, created based on [`BuildingProcessData`](@ref)es.
 - `node__node::RelationshipClass`: Defines the heat transfer coefficients between the `node`s.
 - `unit__from_node::RelationshipClass`: Defines `unit` input flow properties.
 - `unit__to_node::RelationshipClass`: Defines `unit` output flow properties.

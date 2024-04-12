@@ -76,7 +76,7 @@ structures to a Spine Datastore for inspection.
 
 Automatic weather data processing using the [`ArBuWe.py`](@ref) sub-module
 takes place during [`ArchetypeBuilding`](@ref) processing.
-Here, the [`process_weather`](@ref) function doing most of the heavy
+Here, the [`ArBuMo.process_weather`](@ref) function doing most of the heavy
 lifting based on [The `building_archetype` definition](@ref) and the
 processed [`ScopeData`](@ref). The final [`WeatherData`](@ref) structs are stored
 into a `weather_data_dictionary`, which can be examined through the Julia REPL

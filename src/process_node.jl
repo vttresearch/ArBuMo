@@ -283,7 +283,7 @@ end
     calculate_interior_air_and_furniture_thermal_mass(
         archetype::Object,
         scope::ScopeData,
-        is_interior::Bool;
+        is_interior_node::Bool;
         mod::Module=@__MODULE__,
     )
 
@@ -304,10 +304,10 @@ and `A_gfa` is the gross-floor area of the building.
 function calculate_interior_air_and_furniture_thermal_mass(
     archetype::Object,
     scope::ScopeData,
-    is_interior::Bool;
+    is_interior_node::Bool;
     mod::Module=@__MODULE__,
 )
-    is_interior ?
+    is_interior_node ?
     scope.average_gross_floor_area_m2_per_building *
     mod.effective_thermal_capacity_of_interior_air_and_furniture_J_m2K(
         building_archetype=archetype,
@@ -335,7 +335,7 @@ C_\\text{n,str} = \\sum_{\\text{st} \\in n} w_\\text{n,st} c_\\text{st} A_\\text
 ```
 where `st` is the [structure\\_type](@ref) and `n` is the [building\\_node](@ref),
 `w_n,st` is the [structure\\_type\\_weight](@ref) of the structure `st` on this node,
-`c_st`is the [effective\\_thermal\\_mass\\_J\\_m2K](@ref) of the structure,
+`c_st` is the [effective\\_thermal\\_mass\\_J\\_m2K](@ref) of the structure,
 and `A_st` is the surface area of the structure.
 """
 function calculate_structural_thermal_mass(
@@ -438,7 +438,7 @@ H_\\text{ext,n} = \\sum_{\\text{st} \\in n} w_\\text{n,st} \\left( \\frac{1}{U_\
 where `st` is the [structure\\_type](@ref) and `n` is the [building\\_node](@ref),
 `w_n,st` is the [structure\\_type\\_weight](@ref) of the structure `st` on this node,
 `U_ext,st` is the [external\\_U\\_value\\_to\\_ambient\\_air\\_W\\_m2K](@ref) of structure `st`,
-`w_int,n` is the [is\\_interior](@ref) boolean flag of this node,
+`w_int,n` is the [is\\_interior\\_node](@ref) boolean flag of this node,
 `U_int,st` is the [internal\\_U\\_value\\_to\\_structure\\_W\\_m2K](@ref) of structure `st`,
 and `A_st` is the surface area of structure `st`.
 """
@@ -536,7 +536,7 @@ H_\\text{w,n} = U_\\text{w} A_\\text{w}
 where `U_w` is the [window\\_U\\_value\\_W\\_m2K](@ref),
 and `A_w` is the surface area of the windows.
 Note that heat transfer through windows is only applied to the
-[is\\_interior](@ref) node.
+[is\\_interior\\_node](@ref) node.
 """
 function calculate_window_heat_transfer_coefficient(
     scope::ScopeData,
@@ -574,7 +574,7 @@ and `r_inf` is the [infiltration\\_rate\\_1\\_h](@ref).
 The division by 3600 accounts for the unit conversion from J to Wh.
 
 Note that ventilation and infiltration heat transfer is only applied to the
-[is\\_interior](@ref) node.
+[is\\_interior\\_node](@ref) node.
 """
 function calculate_ventilation_and_infiltration_heat_transfer_coefficients(
     archetype::Object,
@@ -619,7 +619,7 @@ where `ΔU_w,tb` is the [window\\_area\\_thermal\\_bridge\\_surcharge\\_W\\_m2K]
 and `Ψ_st` is the [linear\\_thermal\\_bridges\\_W\\_mK](@ref).
 
 Note that thermal bridge heat transfer is only applied to the
-[is\\_interior](@ref) node.
+[is\\_interior\\_node](@ref) node.
 """
 function calculate_total_thermal_bridge_heat_transfer_coefficient(
     archetype::Object,
@@ -667,7 +667,7 @@ See [`calculate_total_internal_heat_loads`](@ref) for how the total
 internal heat loads are calculated.
 
 Note that convective internal heat gains are only applied to the
-[is\\_interior](@ref) node.
+[is\\_interior\\_node](@ref) node.
 """
 function calculate_convective_internal_heat_gains(
     archetype::Object,

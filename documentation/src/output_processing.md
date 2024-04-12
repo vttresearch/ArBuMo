@@ -65,7 +65,7 @@ model structure, the key points are:
 
 1. Each [building\_archetype](@ref) is mapped into a `grid`.
 2. Each [`AbstractNode`](@ref) is mapped into a `node` in the corresponding archetype `grid`.
-2. Each [`AbstractProcess`](@ref) in each [building\_archetype](@ref) is mapped into a unique `unit`.
+2. Each [`BuildingProcessData`](@ref) in each [building\_archetype](@ref) is mapped into a unique `unit`.
 4. System link nodes defined by [building\_archetype\_\_system\_link\_node](@ref) relationships and the associated [node\_name](@ref) and [grid\_name](@ref) are created to serve as connection points to potential energy system datasets.
 
 Since [ArBuMo.jl](@ref) is based on
@@ -97,14 +97,14 @@ loops over the archetypes, and adds them to the [`SpineOptInput`](@ref)
 one by one.
 The actual processing is handled by the
 [`ArBuMo.add_archetype_to_input!`](@ref) function,
-which essentially maps the [`AbstractNode`](@ref) and [`AbstractProcess`](@ref)
+which essentially maps the [`AbstractNode`](@ref) and [`BuildingProcessData`](@ref)
 parameters to their [SpineOpt](https://github.com/Spine-project/SpineOpt.jl) 
 counterparts. For people familiar with
 [SpineOpt](https://github.com/Spine-project/SpineOpt.jl),
 the key points are:
 
 1. Each [`AbstractNode`](@ref) in each [building\_archetype](@ref) is mapped into a unique `node`.
-2. Each [`AbstractProcess`](@ref) in each [building\_archetype](@ref) is mapped into a unique `unit`.
+2. Each [`BuildingProcessData`](@ref) in each [building\_archetype](@ref) is mapped into a unique `unit`.
 3. System link nodes defined by [building\_archetype\_\_system\_link\_node](@ref) relationships and the associated [node\_name](@ref) are created to serve as connection points to potential energy system datasets.
 
 Since both [ArBuMo.jl](@ref) and

@@ -445,7 +445,7 @@ Solve the heating/cooling demand one timestep at a time over the given indices.
 Essentially, performs the following steps:
 1. Initialize the temperature vector, HVAC demand vector, and a dictionary for the dynamic matrices for solving the problem.
 2. Loop over the given `indices` and do the following:
-    3. Invert the dynamics matrix using [`inverted_dynamics_matrix`](@ref).
+    3. Invert the dynamics matrix using [`form_and_invert_dynamics_matrix`](@ref).
     4. Solve new temperatures if HVAC not in use.
     5. Check if new temperatures would violate temperature limits.
     6. If necessary, solve the HVAC demand via [`form_and_invert_hvac_matrix`](@ref) required to keep temperatures within set limits.

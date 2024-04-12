@@ -50,7 +50,7 @@ The key assumptions for forming the archetype building envelope are as follows:
 
 - Fenestration and partition walls are controlled using the following parameters:
     - [partition\_wall\_length\_ratio\_to\_external\_walls\_m\_m](@ref) controls the amount of partition walls relative to external walls.
-    - [window\_area\_distribution\_towards\_cardinal\_directions](@ref) controls the facing of windows *(North, East, South, West, Horizontal)*.
+    - [window\_area\_distribution](@ref) controls horizontal vs vertical window surface area.
     - [window\_area\_to\_external\_wall\_ratio\_m2\_m2](@ref) controls the share of windows relative to vertical facade area.
 
 See the [`ArBuMo.process_building_envelope`](@ref) docstring

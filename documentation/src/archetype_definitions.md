@@ -265,11 +265,11 @@ Value list: `nothing`
 
 ### `window_area_distribution`
 
->Assumed distribution of window area towards the cardinal directions. By default, window area is assumed to be distributed equally towards all cardinal directions.
+>Assumed distribution of window area between horizontal and vertical furfaces.
 
 Object class: `building_archetype`
 
-Default value: `Dict{String, Any}("data" => Any[Any["horizontal", 0.0], Any["north", 0.25], Any["east", 0.25], Any["south", 0.25], Any["west", 0.25]], "type" => "map", "index_name" => "cardinal_direction", "index_type" => "str")`
+Default value: `Dict{String, Any}("data" => Any[Any["horizontal", 0.0], Any["vertical", 1.0]], "type" => "map", "index_name" => "direction", "index_type" => "str")`
 
 Value list: `nothing`
 
@@ -343,6 +343,16 @@ Default value: `0.0`
 
 Value list: `nothing`
 
+### `cooling_set_point_K`
+
+>Cooling set point for the node [K].
+
+Object class: `building_node`
+
+Default value: `nothing`
+
+Value list: `nothing`
+
 ### `effective_thermal_mass_base_J_K`
 
 >Define the base component of total effective thermal mass of the node by hand [J/K].
@@ -363,33 +373,53 @@ Default value: `0.0`
 
 Value list: `nothing`
 
+### `heating_set_point_K`
+
+>Heating set point for the node [K].
+
+Object class: `building_node`
+
+Default value: `nothing`
+
+Value list: `nothing`
+
+### `is_domestic_hot_water_node`
+
+>A flag indicating whether this node is the primary domestic hot water node.
+
+Object class: `building_node`
+
+Default value: `false`
+
+Value list: `Boolean`
+
 ### `is_interior_node`
 
->Weight for how much of the interior air and furniture is included in this node.
+>A flag indicating whether this node is the primary indoor air and furniture node, driving heating and cooling demand due to comfort limitations.
 
 Object class: `building_node`
 
-Default value: `0.0`
+Default value: `false`
+
+Value list: `Boolean`
+
+### `permitted_temperature_deviation_negative_K`
+
+>Maximum allowed temperature deviation under the set point for the node [K].
+
+Object class: `building_node`
+
+Default value: `10.0`
 
 Value list: `nothing`
 
-### `maximum_permitted_temperature_K`
+### `permitted_temperature_deviation_positive_K`
 
->Maximum allowed temperature for the node [K].
-
-Object class: `building_node`
-
-Default value: `400.0`
-
-Value list: `nothing`
-
-### `minimum_permitted_temperature_K`
-
->Minimum allowed temperature for the node [K].
+>Maximum allowed temperature deviation above the set point for the node [K].
 
 Object class: `building_node`
 
-Default value: `200.0`
+Default value: `10.0`
 
 Value list: `nothing`
 
@@ -571,7 +601,7 @@ Object class: `structure_type`
 
 Default value: `nothing`
 
-Value list: `nothing`
+Value list: `Boolean`
 
 ### `is_load_bearing`
 
@@ -581,7 +611,7 @@ Object class: `structure_type`
 
 Default value: `true`
 
-Value list: `nothing`
+Value list: `Boolean`
 
 ### `linear_thermal_bridge_W_mK`
 
