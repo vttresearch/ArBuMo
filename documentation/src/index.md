@@ -96,6 +96,12 @@ Moving the thermal mass dynamics to Python `xarray` level could potentially help
 but I have no idea whether the required calculations could be performed
 in a computationally practical manner.
 
+Another potential approach for trying to get "less specific" heating and cooling demand
+profiles could be a more rough approach: Calculate "worst-case", "expected", and
+"best-case" heating and cooling demand profiles using e.g. steady-state assumptions
+for the temperature nodes, and then calculate weighted averages based on user needs?
+Hardly ideal, but could be interesting and provides "forecasts" as a by-product?
+
 
 ## Contents
 
