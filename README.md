@@ -19,6 +19,8 @@ as implementing investment modelling options requires reformulating the building
 as well as the lumped-capacitance thermal models.
 
 >[!IMPORTANT]
+>2024-08-16: The *FlexiB* project funding this research is ending, making it unlikely that this module will receive see further active development.
+>
 >2024-04-12: The [Backbone](https://cris.vtt.fi/en/publications/backbone)
 >and [SpineOpt](https://github.com/Spine-project/SpineOpt.jl) are currently broken,
 >as the simplest investment formulation requires new features to be implemented
